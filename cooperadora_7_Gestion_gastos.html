@@ -285,6 +285,12 @@
                         <input type="date" class="form-input" id="fechaEstimada">
                     </div>
                     <div class="form-group">
+                        <label class="form-label">Fecha de Pago <span style="color:#aaa;font-weight:400;">(si ejecutado)</span></label>
+                        <input type="date" class="form-input" id="fechaPago">
+                    </div>
+                </div>
+                <div class="grid-2">
+                    <div class="form-group">
                         <label class="form-label">Categoría</label>
                         <select class="form-select" id="categoria">
                             <option>Hon. Dirección/Coordinación</option>
@@ -300,6 +306,13 @@
                             <option>Plataformas Internet</option>
                         </select>
                     </div>
+                    <div class="form-group">
+                        <label class="form-label">Estado</label>
+                        <select class="form-select" id="estado">
+                            <option value="PENDIENTE">Pendiente</option>
+                            <option value="CANCELADO">Cancelado (Ejecutado)</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Concepto/Descripción</label>
@@ -308,35 +321,53 @@
                 <div class="grid-2">
                     <div class="form-group">
                         <label class="form-label">Programa/Curso</label>
-                        <select class="form-select" id="programa">
+                        <select class="form-select" id="programa" onchange="cargarCohortes(this.value)">
                             <option value="">— Todos —</option>
                         </select>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Cohorte/Edición</label>
-                        <input type="text" class="form-input" id="cohorte" placeholder="ej: 2024-2025">
+                        <select class="form-select" id="cohorte"><option value="">— Sin cohorte específica —</option></select>
                     </div>
                 </div>
                 <div class="grid-2">
                     <div class="form-group">
-                        <label class="form-label">Monto</label>
-                        <input type="number" class="form-input" id="monto" placeholder="$">
+                        <label class="form-label">Monto Original</label>
+                        <input type="number" class="form-input" id="montoOriginal" placeholder="$" min="0" step="0.01">
                     </div>
                     <div class="form-group">
                         <label class="form-label">Moneda</label>
-                        <select class="form-select" id="moneda">
+                        <select class="form-select" id="moneda" onchange="toggleTipoCambio()">
                             <option value="ARS">ARS — Pesos argentinos</option>
                             <option value="USD">USD — Dólares</option>
                         </select>
                     </div>
                 </div>
-                <div class="form-group">
-                    <label class="form-label">Proveedor</label>
-                    <input type="text" class="form-input" id="proveedor">
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label class="form-label">Monto Pagado</label>
+                        <input type="number" class="form-input" id="montoPagado" placeholder="$" min="0" step="0.01">
+                        <div class="form-hint">Solo si hay pago total o parcial</div>
+                    </div>
+                    <div class="form-group" id="grpTipoCambio" style="display:none;">
+                        <label class="form-label">Tipo de cambio (ARS/USD)</label>
+                        <input type="number" class="form-input" id="tipoCambio" placeholder="ej: 1200" min="0" step="1">
+                        <div class="form-hint">Referencia al momento del pago</div>
+                    </div>
+                </div>
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label class="form-label">Proveedor</label>
+                        <input type="text" class="form-input" id="proveedor">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">N° comprobante</label>
+                        <input type="text" class="form-input" id="comprobante" placeholder="Opcional">
+                    </div>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">N° comprobante</label>
-                    <input type="text" class="form-input" id="comprobante" placeholder="Opcional">
+                    <label class="form-label">Observaciones</label>
+                    <textarea class="form-textarea" id="observaciones" placeholder="Notas adicionales (opcional)" style="min-height:60px;"></textarea>
                 </div>
             </div>
             <div class="modal-footer">
@@ -417,7 +448,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="supabase.js?v=20250529"></script>
 <script>
-var G = { egresos: [], programas: [], gastoAEjecutar: null, editing: null, tabActiva: 'proyectados',
+var G = { egresos: [], programas: [], cohortes: [], gastoAEjecutar: null, editing: null, tabActiva: 'proyectados',
           filtros: { proyectados: { texto:'', categoria:'', programa:'' }, ejecutados: { texto:'', categoria:'', programa:'' } } };
 
 var fMonto = fMontoConSigno;
@@ -429,6 +460,7 @@ function fFechaCorta(f) {
 function esEjecutado(e) { return e.tipo==='EJECUTADO' && (e.estado==='CANCELADO' || e.estado==='PAGADO'); }
 function esParcial(e)   { return e.estado==='PARCIAL'; }
 function nomProg(id) { var p=G.programas.find(function(x){return x.programa_id===id;}); return p?p.nombre:'—'; }
+function nomCoh(id)  { var c=G.cohortes.find(function(x){return x.cohorte_id===id;});  return c?c.nombre:'—'; }
 
 function cambiarTab(tab, event) {
     G.tabActiva = tab;
@@ -494,7 +526,7 @@ function renderTabla(tipo) {
             +'<td>'+esc(e.categoria||'—')+'</td>'
             +'<td>'+esc(e.concepto||'—')+'</td>'
             +'<td style="font-size:12px;">'+esc(nomProg(e.programa_id))+'</td>'
-            +'<td style="font-size:12px;">'+esc(e.periodo||'—')+'</td>'
+            +'<td style="font-size:12px;">'+esc(e.cohorte_id?nomCoh(e.cohorte_id):'—')+'</td>'
             + montoCell
             +'<td style="font-size:12px;">'+esc(e.proveedor||'—')+'</td>'
             +'<td style="font-size:12px;">'+esc(e.nro_comprobante||'—')+'</td>'
@@ -504,33 +536,58 @@ function renderTabla(tipo) {
     }).join('');
 }
 
+function cargarCohortes(programaId) {
+    var sel = document.getElementById('cohorte');
+    var lista = programaId
+        ? G.cohortes.filter(function(c){ return String(c.programa_id)===String(programaId); })
+        : G.cohortes;
+    sel.innerHTML = '<option value="">— Sin cohorte específica —</option>'
+        + lista.map(function(c){ return '<option value="'+c.cohorte_id+'">'+esc(c.nombre)+'</option>'; }).join('');
+}
+
+function toggleTipoCambio() {
+    var moneda = document.getElementById('moneda').value;
+    document.getElementById('grpTipoCambio').style.display = moneda==='USD' ? 'block' : 'none';
+}
+
 function abrirModalGasto(tipo, egresoId) {
     G.editing = egresoId || null;
     var esEjec = tipo==='ejecutados';
     document.getElementById('modalTitulo').textContent = (egresoId ? '✏️ Editar' : '➕ Nuevo') + ' Gasto ' + (esEjec?'Ejecutado':'Proyectado');
-    document.getElementById('fechaEstimada').value = '';
+    document.getElementById('fechaEstimada').value = new Date().toISOString().split('T')[0];
+    document.getElementById('fechaPago').value = '';
     document.getElementById('categoria').value = document.getElementById('categoria').options[0].value;
+    document.getElementById('estado').value = esEjec ? 'CANCELADO' : 'PENDIENTE';
     document.getElementById('concepto').value = '';
     document.getElementById('programa').value = '';
-    document.getElementById('cohorte').value = '';
-    document.getElementById('monto').value = '';
+    cargarCohortes('');
+    document.getElementById('montoOriginal').value = '';
+    document.getElementById('montoPagado').value = '';
     document.getElementById('moneda').value = 'ARS';
+    document.getElementById('tipoCambio').value = '';
     document.getElementById('proveedor').value = '';
     document.getElementById('comprobante').value = '';
+    document.getElementById('observaciones').value = '';
     if (egresoId) {
         var e = G.egresos.find(function(x){return x.egreso_id===egresoId;});
         if (e) {
             document.getElementById('fechaEstimada').value = e.fecha_estimada||'';
+            document.getElementById('fechaPago').value = e.fecha_pago||'';
             document.getElementById('categoria').value = e.categoria||'';
+            document.getElementById('estado').value = e.estado||(esEjec?'CANCELADO':'PENDIENTE');
             document.getElementById('concepto').value = e.concepto||'';
             document.getElementById('programa').value = e.programa_id||'';
-            document.getElementById('cohorte').value = e.periodo||'';
-            document.getElementById('monto').value = e.monto_pagado||e.monto_original||'';
+            cargarCohortes(e.programa_id||'');
+            document.getElementById('cohorte').value = e.cohorte_id||'';
+            document.getElementById('montoOriginal').value = e.monto_original||'';
+            document.getElementById('montoPagado').value = e.monto_pagado||'';
             document.getElementById('moneda').value = e.moneda||'ARS';
             document.getElementById('proveedor').value = e.proveedor||'';
             document.getElementById('comprobante').value = e.nro_comprobante||'';
+            document.getElementById('observaciones').value = e.observaciones||'';
         }
     }
+    toggleTipoCambio();
     document.getElementById('modalGasto').classList.add('active');
 }
 
@@ -541,19 +598,29 @@ async function guardarGasto() {
     var concepto = document.getElementById('concepto').value.trim();
     var categoria = document.getElementById('categoria').value;
     if (!concepto || !categoria) { alert('Completá concepto y categoría'); return; }
-    var esEjec = G.tabActiva==='ejecutados';
+    var montoOrig = parseFloat(document.getElementById('montoOriginal').value)||null;
+    var montoPag  = parseFloat(document.getElementById('montoPagado').value)||null;
+    var moneda     = document.getElementById('moneda').value || 'ARS';
+    var tipoCambio = parseFloat(document.getElementById('tipoCambio').value)||null;
+    var obsTexto   = document.getElementById('observaciones').value.trim();
     var datos = {
-        fecha_estimada: document.getElementById('fechaEstimada').value||null,
-        categoria: categoria,
-        concepto: concepto,
-        programa_id: document.getElementById('programa').value||null,
-        periodo: document.getElementById('cohorte').value.trim()||null,
-        monto_pagado: parseFloat(document.getElementById('monto').value)||null,
-        moneda: document.getElementById('moneda').value || 'ARS',
-        proveedor: document.getElementById('proveedor').value.trim()||null,
+        tipo:            G.tabActiva==='ejecutados' ? 'EJECUTADO' : 'PROYECTADO',
+        estado:          document.getElementById('estado').value || 'PENDIENTE',
+        fecha_estimada:  document.getElementById('fechaEstimada').value||null,
+        fecha_pago:      document.getElementById('fechaPago').value||null,
+        categoria:       categoria,
+        concepto:        concepto,
+        programa_id:     document.getElementById('programa').value||null,
+        cohorte_id:      document.getElementById('cohorte').value||null,
+        monto_original:  montoOrig,
+        monto_pagado:    montoPag,
+        monto_pendiente: montoOrig&&montoPag ? montoOrig-montoPag : montoOrig,
+        moneda:          moneda,
+        proveedor:       document.getElementById('proveedor').value.trim()||null,
         nro_comprobante: document.getElementById('comprobante').value.trim()||null,
-        tipo: esEjec?'EJECUTADO':'PROYECTADO',
-        estado: esEjec?'CANCELADO':'PENDIENTE'
+        observaciones:   moneda==='USD' && tipoCambio
+                         ? ('TC: '+tipoCambio + (obsTexto ? ' — '+obsTexto : ''))
+                         : (obsTexto||null)
     };
     if (G.editing) datos.egreso_id = G.editing;
     try {
@@ -656,7 +723,7 @@ function exportarExcelTab(tipo) {
         var fecha = (esEjec ? (e.fecha_pago || '') : (e.fecha_estimada || '')).split('T')[0];
         var monto = esEjec ? Number(e.monto_pagado || e.monto_original || 0) : Number(e.monto_original || 0);
         var estado = esEjec ? 'Ejecutado' : (esParcial(e) ? 'Pago Parcial' : 'Proyectado');
-        filas.push([fecha, e.categoria || '', e.concepto || '', nomProg(e.programa_id), e.periodo || '', monto, e.proveedor || '', e.nro_comprobante || '', estado]);
+        filas.push([fecha, e.categoria || '', e.concepto || '', nomProg(e.programa_id), e.cohorte_id?nomCoh(e.cohorte_id):'', monto, e.proveedor || '', e.nro_comprobante || '', estado]);
     });
     var wb = XLSX.utils.book_new();
     var ws = XLSX.utils.aoa_to_sheet(filas);
@@ -667,12 +734,14 @@ function exportarExcelTab(tipo) {
 
 async function cargarDatos() {
     try {
-        var [egresos, programas] = await Promise.all([
+        var [egresos, programas, cohortes] = await Promise.all([
             obtenerEgresos({}),
-            obtenerProgramas()
+            obtenerProgramas(),
+            obtenerCohortes()
         ]);
         G.egresos = egresos;
         G.programas = programas;
+        G.cohortes = cohortes;
         var sel = document.getElementById('programa');
         if (sel) sel.innerHTML = '<option value="">— Todos —</option>' + programas.map(function(p){return '<option value="'+p.programa_id+'">'+esc(p.nombre)+'</option>';}).join('');
 
