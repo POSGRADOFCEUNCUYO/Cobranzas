@@ -206,9 +206,10 @@
                 <div class="form-group"><label class="form-label">Monto Pagado</label><input type="number" class="form-input" id="g-monto-pagado" placeholder="0" min="0" step="100"><div class="form-hint">Solo si hay pago total o parcial</div></div>
                 <div class="form-group" id="grp-tipo-cambio" style="display:none;"><label class="form-label">Tipo de cambio (ARS/USD)</label><input type="number" class="form-input" id="g-tipo-cambio" placeholder="ej: 1200" min="0" step="1"><div class="form-hint">Referencia al momento del pago</div></div>
             </div>
+            <div class="form-group"><label class="form-label">Proveedor</label><input type="text" class="form-input" id="g-proveedor" placeholder="Nombre o razón social"></div>
             <div class="grid-2">
-                <div class="form-group"><label class="form-label">Proveedor</label><input type="text" class="form-input" id="g-proveedor" placeholder="Nombre o razón social"></div>
                 <div class="form-group"><label class="form-label">N° Comprobante</label><input type="text" class="form-input" id="g-comprobante" placeholder="ej: FC-2026-0234"></div>
+                <div class="form-group"><label class="form-label">Fecha del Comprobante <span style="color:#aaa;font-weight:400;">(opcional)</span></label><input type="date" class="form-input" id="g-fecha-comprobante"></div>
             </div>
             <div class="form-group"><label class="form-label">Observaciones</label><textarea class="form-textarea" id="g-observaciones" placeholder="Notas adicionales (opcional)" style="min-height:60px;"></textarea></div>
         </div>
@@ -453,7 +454,7 @@ function aplicarFiltros(tipo) { _pag[tipo] = 1; renderTabla(tipo); }
 
 /* ── MODAL NUEVO/EDITAR ── */
 function limpiarModal() {
-    ['g-id','g-tipo','g-concepto','g-proveedor','g-comprobante','g-observaciones','g-monto-original','g-monto-pagado','g-tipo-cambio','g-fecha-estimada','g-fecha-pago'].forEach(function(id){ document.getElementById(id).value=''; });
+    ['g-id','g-tipo','g-concepto','g-proveedor','g-comprobante','g-fecha-comprobante','g-observaciones','g-monto-original','g-monto-pagado','g-tipo-cambio','g-fecha-estimada','g-fecha-pago'].forEach(function(id){ document.getElementById(id).value=''; });
     document.getElementById('g-programa').value='';
     document.getElementById('g-moneda').value='ARS';
     document.getElementById('grp-tipo-cambio').style.display='none';
@@ -482,6 +483,7 @@ function abrirModalGasto(tipo, egresoId) {
             document.getElementById('g-categoria').value        = e.categoria||'';
             document.getElementById('g-proveedor').value        = e.proveedor||'';
             document.getElementById('g-comprobante').value      = e.nro_comprobante||'';
+            document.getElementById('g-fecha-comprobante').value = e.fecha_comprobante||'';
             document.getElementById('g-observaciones').value    = e.observaciones||'';
             document.getElementById('g-monto-original').value   = e.monto_original||'';
             document.getElementById('g-monto-pagado').value     = e.monto_pagado||'';
@@ -528,6 +530,7 @@ async function guardarGasto() {
         moneda:          moneda,
         proveedor:       document.getElementById('g-proveedor').value.trim()||null,
         nro_comprobante: document.getElementById('g-comprobante').value.trim()||null,
+        fecha_comprobante: document.getElementById('g-fecha-comprobante').value||null,
         observaciones:   moneda==='USD' && tipoCambio
                          ? ('TC: '+tipoCambio + (document.getElementById('g-observaciones').value.trim() ? ' — '+document.getElementById('g-observaciones').value.trim() : ''))
                          : (document.getElementById('g-observaciones').value.trim()||null),

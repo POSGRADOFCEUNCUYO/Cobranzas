@@ -386,10 +386,16 @@
                     <label class="form-label">Proveedor</label>
                     <input type="text" class="form-input" id="proveedor">
                 </div>
-                <div class="form-group">
-                    <label class="form-label">N° comprobante</label>
-                    <input type="text" class="form-input" id="comprobante" placeholder="Opcional">
-                    <div class="form-hint">Para proyectados puede quedar vacío hasta ejecutar el gasto.</div>
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label class="form-label">N° comprobante</label>
+                        <input type="text" class="form-input" id="comprobante" placeholder="Opcional">
+                        <div class="form-hint">Para proyectados puede quedar vacío hasta ejecutar el gasto.</div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Fecha del Comprobante <span style="color:#aaa;font-weight:400;">(opcional)</span></label>
+                        <input type="date" class="form-input" id="fechaComprobante">
+                    </div>
                 </div>
             </div>
             <div class="modal-footer">
@@ -588,7 +594,7 @@
                 if (todosProgIds.length)   filtrosEgr.push('and(programa_id.in.(' + todosProgIds.join(',') + '),cohorte_id.is.null)');
                 var rE = filtrosEgr.length
                     ? await sb.from('egresos')
-                        .select('egreso_id,programa_id,cohorte_id,tipo,estado,monto_pagado,monto_original,monto_pendiente,moneda,fecha_pago,fecha_estimada,proveedor,concepto,categoria,nro_comprobante')
+                        .select('egreso_id,programa_id,cohorte_id,tipo,estado,monto_pagado,monto_original,monto_pendiente,moneda,fecha_pago,fecha_estimada,proveedor,concepto,categoria,nro_comprobante,fecha_comprobante')
                         .or(filtrosEgr.join(','))
                     : { data: [] };
 
@@ -627,6 +633,7 @@
                         moneda:        e.moneda||'ARS',
                         proveedor:     e.proveedor||'',
                         comprobante:   e.nro_comprobante||'',
+                        fechaComprobante: e.fecha_comprobante||'',
                         estadoDB:      e.estado||'',
                         estado:        e.estado==='PARCIAL' ? 'Pago Parcial' : e.tipo==='EJECUTADO' ? 'Ejecutado' : 'Proyectado'
                     };
@@ -679,6 +686,7 @@
                 estado: estadoDB === 'PARCIAL' ? 'Pago Parcial' : tipo === 'ejecutados' ? 'Ejecutado' : 'Proyectado',
                 observaciones: g.observaciones || '',
                 fechaEjecucion: g.fechaEjecucion || g.fecha_pago || '',
+                fechaComprobante: g.fechaComprobante || g.fecha_comprobante || '',
                 tipo: tipo
             };
         }
@@ -890,6 +898,7 @@
             document.getElementById('moneda').value = gasto.moneda || 'ARS';
             document.getElementById('proveedor').value = gasto.proveedor || '';
             document.getElementById('comprobante').value = gasto.comprobante || '';
+            document.getElementById('fechaComprobante').value = gasto.fechaComprobante || '';
             abrirModal('modalGasto');
         }
 
@@ -961,6 +970,7 @@
             var monto      = Number(document.getElementById('monto').value || 0);
             var proveedor  = document.getElementById('proveedor').value.trim();
             var comprobante = document.getElementById('comprobante').value.trim();
+            var fechaComprobante = document.getElementById('fechaComprobante').value;
             var fecha      = document.getElementById('fechaEstimada').value;
 
             if (!fecha || !categoria || !concepto || !monto) {
@@ -990,7 +1000,8 @@
                 monto_pagado:    tipo === 'ejecutados' ? monto : null,
                 moneda:          document.getElementById('moneda').value || 'ARS',
                 proveedor:       proveedor || null,
-                nro_comprobante: comprobante || null
+                nro_comprobante: comprobante || null,
+                fecha_comprobante: fechaComprobante || null
             };
 
             if (state.editing && state.editing.id) {
@@ -1169,6 +1180,7 @@
             document.getElementById('moneda').value = 'ARS';
             document.getElementById('proveedor').value = '';
             document.getElementById('comprobante').value = '';
+            document.getElementById('fechaComprobante').value = '';
         }
 
         function abrirModal(modalId) {
