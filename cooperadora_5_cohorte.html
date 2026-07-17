@@ -1562,7 +1562,7 @@
                         ? Number(c.monto_abonado)
                         : Math.max(0, Number(c.monto_final||0) - Number(c.saldo_pendiente||0));
                     var estadoRaw = resolverEstadoCobro(c);
-                    dniMap[dk].cuotas.push({ cobroId:c.cobro_id, numeroCuota:c.nro_cuota||0, nombre:c.concepto||'', mes:c.periodo||'', fechaVencimiento:c.fecha_vencimiento||'', montoBase:Number(c.monto_original||c.monto_final||0), montoFinal:Number(c.monto_final||0), saldoPendiente:Number(c.saldo_pendiente||0), intereses:0, montoAbonado:abonado, montoTransferido:(c.monto_transferido ? Number(c.monto_transferido) : null), texto:'', estado:estadoRaw, aDefinir:estadoRaw==='A_DEFINIR', comprobante_url:c.comprobante_url||'', recibo_url:c.recibo_url||'' });
+                    dniMap[dk].cuotas.push({ cobroId:c.cobro_id, numeroCuota:c.nro_cuota||0, nombre:c.concepto||'', mes:c.periodo||'', fechaVencimiento:c.fecha_vencimiento||'', montoBase:Number(c.monto_original||c.monto_final||0), moneda:c.moneda||'ARS', montoFinal:Number(c.monto_final||0), saldoPendiente:Number(c.saldo_pendiente||0), intereses:0, montoAbonado:abonado, montoTransferido:(c.monto_transferido ? Number(c.monto_transferido) : null), texto:'', estado:estadoRaw, aDefinir:estadoRaw==='A_DEFINIR', comprobante_url:c.comprobante_url||'', recibo_url:c.recibo_url||'' });
                 });
 
                 // Agregar estudiantes inscriptos que aún no tienen cobros
@@ -1775,7 +1775,8 @@
                                 <th class="discount-col">Descuento</th>
                                 ${cuotaDefs.map(function (def) {
                                     var sub = def.sub ? '<br><span style="font-weight:400;font-size:9px;color:#999;letter-spacing:0.04em;">' + escapeHtml(def.sub) + '</span>' : '';
-                                    return `<th class="cuota-header" title="${escapeHtml(def.tooltip)}">${escapeHtml(def.label)}${sub}</th>`;
+                                    var base = (def.base > 0) ? '<br><span style="font-weight:700;font-size:10px;color:#8C1A28;">' + escapeHtml(fMonto(def.base, def.moneda)) + '</span>' : '';
+                                    return `<th class="cuota-header" title="${escapeHtml(def.tooltip)}">${escapeHtml(def.label)}${sub}${base}</th>`;
                                 }).join('')}
                                 <th class="tot-pagar">Total a pagar</th>
                                 <th class="tot-abonado">Abonado</th>
@@ -1978,11 +1979,18 @@
                             fechaRef: cuota.fechaVencimiento || '',
                             label: label,
                             sub: mesDeCuota(cuota),
-                            tooltip: label + mes
+                            tooltip: label + mes,
+                            base: Number(cuota.montoBase) || 0,
+                            moneda: cuota.moneda || 'ARS'
                         });
-                    } else if (!mapa.get(key).sub) {
+                    } else {
+                        var d = mapa.get(key);
                         // Otra fila de la misma columna puede tener el mes/fecha que faltaba
-                        mapa.get(key).sub = mesDeCuota(cuota);
+                        if (!d.sub) d.sub = mesDeCuota(cuota);
+                        // Base = precio de lista (monto_original), igual para todos; se
+                        // toma el máximo para ignorar los "no aplica" (0).
+                        var mb = Number(cuota.montoBase) || 0;
+                        if (mb > (d.base || 0)) { d.base = mb; d.moneda = cuota.moneda || d.moneda; }
                     }
                 });
             });

@@ -491,7 +491,7 @@ async function cargar() {
         var sb = await getSupabase();
         var [rCoh, rCob, rInsc, rEgr, rProg] = await Promise.all([
             sb.from('cohortes').select('cohorte_id,nombre,estado,fecha_inicio,fecha_fin,programa_id,programas(nombre,gas_url,email_remitente)').eq('cohorte_id', COHORTE_ID).single(),
-            sbFetchAll(function() { return sb.from('cobros').select('cobro_id,dni,concepto,periodo,fecha_vencimiento,monto_original,descuento_porcentaje,monto_final,saldo_pendiente,monto_abonado,monto_transferido,estado,no_aplica,comprobante_url,recibo_url,fecha_pago').eq('cohorte_id', COHORTE_ID).order('fecha_vencimiento'); }),
+            sbFetchAll(function() { return sb.from('cobros').select('cobro_id,dni,concepto,periodo,fecha_vencimiento,monto_original,descuento_porcentaje,monto_final,saldo_pendiente,monto_abonado,monto_transferido,estado,moneda,no_aplica,comprobante_url,recibo_url,fecha_pago').eq('cohorte_id', COHORTE_ID).order('fecha_vencimiento'); }),
             obtenerInscripcionesPorCohorte(COHORTE_ID, 'estudiante_id, descuento_porcentaje, estado_academico'),
             obtenerEgresosResumenPorCohorte(COHORTE_ID),
             PROGRAMA_ID ? sb.from('programas').select('programa_id,nombre,gas_url,email_remitente').eq('programa_id', PROGRAMA_ID).single() : Promise.resolve({data:null})

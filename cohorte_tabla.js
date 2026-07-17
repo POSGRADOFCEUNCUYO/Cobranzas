@@ -273,9 +273,28 @@ function renderTabla() {
     var thead = document.getElementById('t-head');
     var tbody = document.getElementById('t-body');
 
+    // Valor base de cada cuota (precio de lista = monto_original, igual para todos
+    // los alumnos). Se toma el máximo por columna para ignorar los "no aplica" (0).
+    var basePorCol = {};
+    (estudiantes || []).forEach(function(est) {
+        (est.cobros || []).forEach(function(c) {
+            if (!c) return;
+            var k = keyCuota(c.concepto_base || c.concepto, c.periodo);
+            var mo = Number(c.monto_original) || 0;
+            if (!basePorCol[k] || mo > basePorCol[k].monto) {
+                basePorCol[k] = { monto: mo, moneda: c.moneda || 'ARS' };
+            }
+        });
+    });
+
     var colsHtml = columnas.map(function(c) {
+        var b = basePorCol[keyCuota(c.concepto_base, c.periodo)];
+        var baseHtml = (b && b.monto > 0)
+            ? '<br><span class="col-cuota-base" style="font-weight:700;color:#F5D372;font-size:10px;">' + escapeHtml(fMonto(b.monto, b.moneda)) + '</span>'
+            : '';
         return '<th class="col-cuota">' + escapeHtml(c.concepto_base)
-             + '<br><span style="font-weight:400;color:#fff;font-size:9px;">' + escapeHtml(c.periodo || '') + '</span></th>';
+             + '<br><span style="font-weight:400;color:#fff;font-size:9px;">' + escapeHtml(c.periodo || '') + '</span>'
+             + baseHtml + '</th>';
     }).join('');
     thead.innerHTML = '<tr>' + (cfg.leadingHeader || '') + colsHtml + CT_TRAILING_HEADER + '</tr>';
 
