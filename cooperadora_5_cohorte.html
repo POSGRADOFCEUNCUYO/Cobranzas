@@ -3050,7 +3050,7 @@
             var total = cuota ? (cuota.montoFinal || 0) : 0;
             document.getElementById('apNombre').textContent = estudiante ? estudiante.nombreCompleto : '—';
             document.getElementById('apDni').textContent = estudiante ? (estudiante.dni || '—') : '—';
-            document.getElementById('apCuota').textContent = cuota ? (cuota.nombre || ('Cuota ' + (cuota.nroCuota || ''))) : '—';
+            document.getElementById('apCuota').textContent = cuota ? ((cuota.nombre || ('Cuota ' + (cuota.nroCuota || ''))) + (cuota.mes ? ' · ' + cuota.mes : '')) : '—';
             document.getElementById('apMonto').textContent = apFmt(total);
             document.getElementById('apFullDesc').textContent = 'El estudiante pagó el monto total de la cuota (' + apFmt(total) + ')';
             // Pre-cargar el campo parcial con el monto que el estudiante declaró
@@ -3078,7 +3078,16 @@
                 if (banner) banner.style.display = 'none';
             }
 
-            var sub = estudiante ? (estudiante.nombreCompleto + ' · ' + (cuota.nombre || 'Cuota') + ' · ' + apFmt(total)) : cobroId;
+            var _progTxt  = (vistaData && vistaData.programa && vistaData.programa.programaId) ? ('Prog. ' + vistaData.programa.programaId) : '';
+            var _cohTxt   = (vistaData && vistaData.cohorte && vistaData.cohorte.nombre) ? ('Cohorte ' + vistaData.cohorte.nombre) : '';
+            var _cuotaTxt = (cuota ? (cuota.nombre || 'Cuota') : 'Cuota') + (cuota && cuota.mes ? ' · ' + cuota.mes : '');
+            var sub = estudiante
+                ? (estudiante.nombreCompleto
+                    + (_progTxt ? ' · ' + _progTxt : '')
+                    + (_cohTxt ? ' · ' + _cohTxt : '')
+                    + ' · ' + _cuotaTxt
+                    + ' · ' + apFmt(total))
+                : cobroId;
             document.getElementById('aprobModalSub').textContent = sub;
 
             var compArea = document.getElementById('aprobComprobanteArea');
