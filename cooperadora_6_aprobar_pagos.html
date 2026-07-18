@@ -458,7 +458,7 @@
         var _cohNombre = (c.cohortes && c.cohortes.nombre) ? c.cohortes.nombre : '';
         document.getElementById('modal-sub').textContent = 'DNI: ' + (c.dni || '—')
             + (c.programa_id ? ' · Prog. ' + c.programa_id : '')
-            + (_cohNombre ? ' · Cohorte ' + _cohNombre : '')
+            + (_cohNombre ? ' · ' + _cohNombre : '')
             + ' · ' + cuotaLabel
             + (c.periodo ? ' · ' + c.periodo : '');
         document.getElementById('modal-total-pagar').textContent = fMillones(c.monto_final);

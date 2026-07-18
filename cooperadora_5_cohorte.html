@@ -3079,7 +3079,7 @@
             }
 
             var _progTxt  = (vistaData && vistaData.programa && vistaData.programa.programaId) ? ('Prog. ' + vistaData.programa.programaId) : '';
-            var _cohTxt   = (vistaData && vistaData.cohorte && vistaData.cohorte.nombre) ? ('Cohorte ' + vistaData.cohorte.nombre) : '';
+            var _cohTxt   = (vistaData && vistaData.cohorte && vistaData.cohorte.nombre) ? vistaData.cohorte.nombre : '';
             var _cuotaTxt = (cuota ? (cuota.nombre || 'Cuota') : 'Cuota') + (cuota && cuota.mes ? ' · ' + cuota.mes : '');
             var sub = estudiante
                 ? (estudiante.nombreCompleto
