@@ -368,7 +368,7 @@
         try {
             var sb = await getSupabase();
             var q = sb.from('cobros')
-                .select('cobro_id, dni, estudiantes!cobros_dni_fkey(nombre, apellido), programa_id, cohorte_id, concepto, nro_cuota, monto_final, saldo_pendiente, monto_abonado, monto_transferido, estado, comprobante_url, comprobante_fecha, fecha_vencimiento, no_aplica, recibo_url')
+                .select('cobro_id, dni, estudiantes!cobros_dni_fkey(nombre, apellido), cohortes(nombre), programa_id, cohorte_id, concepto, periodo, nro_cuota, monto_final, saldo_pendiente, monto_abonado, monto_transferido, estado, comprobante_url, comprobante_fecha, fecha_vencimiento, no_aplica, recibo_url')
                 .eq('estado', 'PENDIENTE')
                 .not('comprobante_url', 'is', null);
             if (_cohorteId)  q = q.eq('cohorte_id', _cohorteId);
@@ -455,7 +455,12 @@
         var nombreMostrado = apellido + (apellido && nombre ? ', ' : '') + nombre || '(sin nombre)';
         var cuotaLabel = c.nro_cuota ? 'Cuota ' + c.nro_cuota : (c.concepto || '—');
         document.getElementById('modal-nombre').textContent = nombreMostrado;
-        document.getElementById('modal-sub').textContent = 'DNI: ' + (c.dni || '—') + ' · ' + cuotaLabel;
+        var _cohNombre = (c.cohortes && c.cohortes.nombre) ? c.cohortes.nombre : '';
+        document.getElementById('modal-sub').textContent = 'DNI: ' + (c.dni || '—')
+            + (c.programa_id ? ' · Prog. ' + c.programa_id : '')
+            + (_cohNombre ? ' · Cohorte ' + _cohNombre : '')
+            + ' · ' + cuotaLabel
+            + (c.periodo ? ' · ' + c.periodo : '');
         document.getElementById('modal-total-pagar').textContent = fMillones(c.monto_final);
         document.getElementById('modal-total-abonado').textContent = fMillones(
             (c.monto_abonado != null && Number(c.monto_abonado) > 0)
