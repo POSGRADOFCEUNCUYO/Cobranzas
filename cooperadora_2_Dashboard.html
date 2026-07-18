@@ -745,6 +745,7 @@
             var archivoUrl = c.comprobante_url || '';
             var archivoNombre = archivoUrl ? archivoUrl.split('/').pop() : 'comprobante';
             var cuotaLabel = c.nro_cuota ? 'Cuota ' + c.nro_cuota : (c.concepto || '—');
+            if (c.periodo) cuotaLabel += ' · ' + c.periodo;
             var estadoLabel = _estadoLabels[_re] || _re || '—';
             var nombreEsc = nombre.replace(/'/g, "\\'")
             var programaEsc = programaCohorte.replace(/'/g, "\\'")
