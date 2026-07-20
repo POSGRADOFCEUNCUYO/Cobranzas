@@ -430,7 +430,12 @@
                 + '<div class="student-avatar">' + iniciales + '</div>'
                 + '<div class="student-main">'
                 +   '<div class="student-name">' + nombreMostrado + '</div>'
-                +   '<div class="student-sub">DNI: ' + esc(c.dni || '—') + ' · ' + esc(cuotaLabel) + declaradoSub + '</div>'
+                +   '<div class="student-sub">DNI: ' + esc(c.dni || '—')
+                +     (c.programa_id ? ' · Prog. ' + esc(String(c.programa_id)) : '')
+                +     ((c.cohortes && c.cohortes.nombre) ? ' · ' + esc(c.cohortes.nombre) : '')
+                +     ' · ' + esc(cuotaLabel)
+                +     (c.periodo ? ' · ' + esc(c.periodo) : '')
+                +     declaradoSub + '</div>'
                 + '</div>'
                 + '<div class="student-badges">'
                 +   '<span class="badge ' + (esParcialRow ? 'badge-parcial' : 'badge-pendiente') + '">' + (esParcialRow ? 'Pago parcial declarado' : 'Comprobante pendiente') + '</span>'
