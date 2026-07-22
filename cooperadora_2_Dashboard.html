@@ -610,6 +610,11 @@
         document.getElementById('ap-file-meta').textContent = cobro.comprobante_fecha ? 'Subido: ' + fFecha(cobro.comprobante_fecha) : (cobro.updated_at ? 'Subido: ' + fFecha(cobro.updated_at) : '');
         document.getElementById('ap-ver-btn').onclick = function() { if (url) window.open(url, '_blank'); };
         document.getElementById('ap-header-info').textContent = nombreCompleto + (programa.programa_id ? ' · Prog. ' + programa.programa_id : '') + (programa.nombre ? ' · ' + programa.nombre : '');
+        // Habilitar "Aprobar y Registrar" al cargar el cobro. El recibo ya no se
+        // sube a mano (lo adjunta el script de Tango), por eso la caja de subida
+        // está oculta; sin esto el botón quedaba deshabilitado para siempre.
+        var _btnAp = document.getElementById('ap-btn-aprobar');
+        if (_btnAp) { _btnAp.disabled = false; _btnAp.style.opacity = '1'; _btnAp.style.cursor = 'pointer'; }
     }
 
     async function cargarCobro() {
