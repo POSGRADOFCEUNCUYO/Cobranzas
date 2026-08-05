@@ -73,6 +73,13 @@
         .cuota-label { font-size: 10.5px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px; font-weight: 600; }
         .cuota-value { font-size: 15px; font-weight: 600; color: var(--text); }
         .cuota-value.highlight { font-family: 'Crimson Pro',Georgia,serif; font-size: 20px; color: #5C1018; font-weight: 700; }
+        .leyenda-recibo { background: #fbf7ef; border: 1px dashed #d9c48f; border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; }
+        .leyenda-label { font-size: 10.5px; color: #8a6d1f; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; font-weight: 700; }
+        .leyenda-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .leyenda-text { flex: 1 1 auto; min-width: 200px; font-family: 'DM Mono','Courier New',monospace; font-size: 13px; color: #5C1018; background: #fff; border: 1px solid var(--border-light); border-radius: 7px; padding: 8px 10px; user-select: all; word-break: break-word; }
+        .btn-copiar-leyenda { flex: 0 0 auto; background: #5C1018; color: #fff; border: none; border-radius: 7px; padding: 8px 14px; font-size: 12.5px; font-weight: 700; cursor: pointer; font-family: inherit; transition: background .15s; }
+        .btn-copiar-leyenda:hover { background: #7a1620; }
+        .btn-copiar-leyenda.ok { background: var(--success); }
 
         /* Files */
         .files-section { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
@@ -513,6 +520,28 @@
 
     function fmt(n) { return fMonto(n||0, _cobroData && _cobroData.moneda); }
 
+    // Copia la leyenda del recibo al portapapeles (para pegar en el concepto de Tango)
+    function copiarLeyenda(btn) {
+        var cont = btn.parentNode.querySelector('.leyenda-text');
+        var txt = cont ? cont.textContent : '';
+        function marcarOk() {
+            btn.classList.add('ok');
+            btn.innerHTML = '✓ Copiado';
+            setTimeout(function() { btn.classList.remove('ok'); btn.innerHTML = '📋 Copiar'; }, 1800);
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(txt).then(marcarOk).catch(function() {
+                var r = document.createRange(); r.selectNodeContents(cont);
+                var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+                try { document.execCommand('copy'); marcarOk(); } catch (e) {}
+            });
+        } else {
+            var r = document.createRange(); r.selectNodeContents(cont);
+            var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+            try { document.execCommand('copy'); marcarOk(); } catch (e) {}
+        }
+    }
+
     function abrirModalAprobar(cobroId) {
         _cobroId = cobroId;
         _cobroData = null;
@@ -755,6 +784,12 @@
             var nombreEsc = nombre.replace(/'/g, "\\'")
             var programaEsc = programaCohorte.replace(/'/g, "\\'")
             var infoLinea = 'DNI: ' + dni + (programaId ? ' · Prog. ' + programaId : '') + ' - ' + programaEsc;
+            // Leyenda para el recibo de Tango — formato exacto que parsea la automatización:
+            //   <N° programa> <Cohorte o Edición> <Período> <DNI>   ej: "11 Cohorte 2025-2026 Julio de 2026 25666258"
+            var leyendaRecibo = [programaId, cohorte, c.periodo, dni].filter(function(x) {
+                var s = (x == null ? '' : String(x)).trim();
+                return s !== '' && s !== '—';
+            }).join(' ');
             var modalCall = "abrirModal({nombre:'" + nombreEsc + "',info:'" + infoLinea + "',cuota:'" + cuotaLabel + "',monto:'" + monto + "',vencimiento:'" + vencimiento + "',estado:'" + estadoLabel + "',archivo:'" + archivoNombre + "',url:'" + archivoUrl + "'})";
 
             return '<div class="comprobante-card' + (esReciente ? ' new' : '') + '">'
@@ -771,6 +806,13 @@
                 +   '<div class="cuota-item"><div class="cuota-label">Vencimiento</div><div class="cuota-value">' + esc(vencimiento) + '</div></div>'
                 +   '<div class="cuota-item"><div class="cuota-label">Estado</div><div class="cuota-value" style="color:' + _estadoColor + ';">' + esc(estadoLabel) + '</div></div>'
                 + '</div></div>'
+                + '<div class="leyenda-recibo">'
+                +   '<div class="leyenda-label">&#x1F9FE; Leyenda para el recibo</div>'
+                +   '<div class="leyenda-row">'
+                +     '<code class="leyenda-text">' + esc(leyendaRecibo) + '</code>'
+                +     '<button class="btn-copiar-leyenda" onclick="copiarLeyenda(this)">&#x1F4CB; Copiar</button>'
+                +   '</div>'
+                + '</div>'
                 + '<div class="files-section">'
                 +   '<div class="file-preview" onclick="' + modalCall + '">'
                 +     '<div class="file-icon">&#x1F4CE;</div>'
