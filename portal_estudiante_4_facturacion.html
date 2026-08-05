@@ -551,11 +551,121 @@ async function guardarDatos() {
         document.getElementById('alertSuccess').classList.add('show');
         // Scroll al mensaje de éxito
         document.getElementById('alertSuccess').scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        // Avisar a Cooperadora por email (best-effort: no bloquea ni revierte el guardado)
+        notificarCambioFacturacion();
     } catch(e) {
         console.error('Error guardarDatos:', e);
         alert('Error al guardar: ' + (e.message || JSON.stringify(e)));
     } finally {
         spin(false);
+    }
+}
+
+/* ── AVISO A COOPERADORA POR CAMBIO DE DATOS DE FACTURACIÓN ── */
+// Envía un email (vía Edge Function 'enviar-email' → relay GAS/Gmail) a TODAS las
+// cooperadoras activas cuando el estudiante guarda cambios en sus datos de facturación.
+// Best-effort: cualquier error se loguea pero no afecta al guardado.
+async function enviarEmailGas(programaId, to, subject, body) {
+    try {
+        var sb = await getSupabase();
+        var resp = await sb.functions.invoke('enviar-email', {
+            body: { programaId: programaId, to: to, subject: subject, body: body }
+        });
+        if (resp.error) { console.error('relay error para', to, ':', resp.error.message); return false; }
+        return (resp.data && resp.data.ok) === true;
+    } catch(err) {
+        console.error('Error enviando email a', to, err);
+        return false;
+    }
+}
+
+async function notificarCambioFacturacion() {
+    try {
+        var sb = await getSupabase();
+        var d  = _datosEstudiante || {};
+        var dni = d.dni || (getSesion() && getSesion().dni) || '';
+
+        // Carreras del estudiante (TODAS, con su estado activo/baja)
+        var carreras = [];
+        if (d.id) {
+            var insRes = await sb.from('inscripciones')
+                .select('estado_academico, cohortes(nombre, programa_id, programas(nombre))')
+                .eq('estudiante_id', d.id);
+            carreras = insRes.data || [];
+        }
+
+        // programaId para el relay (primera carrera con programa; sirve para elegir el remitente/GAS)
+        var primerProgId = null;
+        carreras.forEach(function(i) {
+            var pid = i.cohortes ? i.cohortes.programa_id : null;
+            if (primerProgId == null && pid != null) primerProgId = pid;
+        });
+
+        // Destinatarios: solo COOPERADORA (RPC SECURITY DEFINER, saltea RLS)
+        var destRes = await sb.rpc('get_destinatarios_baja', { p_programa_id: primerProgId != null ? primerProgId : 0 });
+        var coops = (destRes.data || []).filter(function(r) { return r.rol === 'COOPERADORA' && r.email; });
+        if (!coops.length) { console.warn('Sin cooperadora activa para avisar el cambio de facturación.'); return; }
+
+        var apellido = d.apellido || '';
+        var nombre   = d.nombre   || '';
+        var nombreCompleto = (apellido + (apellido && nombre ? ', ' : '') + nombre).trim() || (dni || 'Estudiante');
+        var f = function(v) { return escapeHtml(v == null || String(v).trim() === '' ? '—' : String(v)); };
+
+        var filasCarreras = carreras.map(function(i) {
+            var coh  = i.cohortes || {};
+            var prog = coh.programas || {};
+            var estado = i.estado_academico === 'ACTIVO' ? 'Activo'
+                       : (i.estado_academico === 'BAJA' ? 'Baja' : (i.estado_academico || '—'));
+            var color = i.estado_academico === 'ACTIVO' ? '#d1fae5' : '#fee2e2';
+            return '<tr style="background:' + color + ';">'
+                + '<td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;">' + escapeHtml(prog.nombre || '—') + '</td>'
+                + '<td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;">' + escapeHtml(coh.nombre || '—') + '</td>'
+                + '<td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;font-weight:700;">' + escapeHtml(estado) + '</td>'
+                + '</tr>';
+        }).join('');
+
+        var subject = 'Modificación de datos de facturación - ' + nombreCompleto;
+
+        var body =
+            '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>' +
+            'body{font-family:Arial,sans-serif;color:#1e3a5f;max-width:640px;margin:0 auto;}' +
+            '.hdr{background:#5C1018;color:#fff;padding:18px 24px;border-radius:8px 8px 0 0;}' +
+            '.hdr h1{margin:0;font-size:18px;} .hdr p{margin:4px 0 0;font-size:12px;opacity:.8;}' +
+            '.bod{background:#f8f6f1;padding:20px 24px;}' +
+            '.ftr{background:#e5e7eb;padding:10px 24px;font-size:11px;color:#6b7280;border-radius:0 0 8px 8px;}' +
+            '.alerta{background:#fff8e1;border-left:4px solid #C49A2A;padding:12px 16px;margin:0 0 16px;border-radius:0 4px 4px 0;font-size:14px;}' +
+            'table{width:100%;border-collapse:collapse;margin:8px 0 14px;font-size:13px;}' +
+            'th{background:#5C1018;color:#fff;padding:7px 10px;text-align:left;}' +
+            'p{font-size:14px;line-height:1.7;}' +
+            '</style></head><body>' +
+            '<div class="hdr"><h1>Secretaría de Posgrado — FCE UNCUYO</h1><p>Sistema de Gestión de Posgrado</p></div>' +
+            '<div class="bod">' +
+            '<div class="alerta">El siguiente estudiante <strong>modificó sus datos de facturación</strong>.</div>' +
+            '<p><strong>Apellido y Nombre:</strong> ' + escapeHtml(nombreCompleto) + '<br>' +
+            '<strong>DNI:</strong> ' + f(dni) + '</p>' +
+            '<h3 style="color:#5C1018;margin-bottom:4px;">Nuevos datos de facturación</h3>' +
+            '<p><strong>Razón Social:</strong> ' + f(d.razon_social) + '<br>' +
+            '<strong>CUIT:</strong> ' + f(d.cuit) + '<br>' +
+            '<strong>Condición IVA:</strong> ' + f(d.condicion_iva) + '<br>' +
+            '<strong>Dirección Fiscal:</strong> ' + f(d.direccion_fiscal) + '<br>' +
+            '<strong>Provincia:</strong> ' + f(d.provincia) + '<br>' +
+            '<strong>Código Postal:</strong> ' + f(d.codigo_postal) + '<br>' +
+            '<strong>Teléfono:</strong> ' + f(d.telefono) + '<br>' +
+            '<strong>Email de contacto:</strong> ' + f(d.email_facturacion) + '</p>' +
+            '<h3 style="color:#5C1018;margin-bottom:4px;">Carreras</h3>' +
+            (carreras.length
+                ? '<table><tr><th>Carrera</th><th>Cohorte/Edición</th><th>Estado</th></tr>' + filasCarreras + '</table>'
+                : '<p>El estudiante no tiene carreras registradas.</p>') +
+            '</div>' +
+            '<div class="ftr">Mensaje automático del sistema. Fecha: ' + new Date().toLocaleDateString('es-AR') + '</div>' +
+            '</body></html>';
+
+        for (var i = 0; i < coops.length; i++) {
+            await enviarEmailGas(primerProgId, coops[i].email, subject, body);
+        }
+    } catch(e) {
+        console.error('No se pudo avisar a Cooperadora el cambio de facturación:', e);
     }
 }
 
