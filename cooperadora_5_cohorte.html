@@ -1784,8 +1784,8 @@
                                 <th class="email-col">Email</th>
                                 <th class="discount-col">Descuento</th>
                                 ${cuotaDefs.map(function (def) {
-                                    var sub = def.sub ? '<br><span style="font-weight:400;font-size:9px;color:#999;letter-spacing:0.04em;">' + escapeHtml(def.sub) + '</span>' : '';
-                                    var base = (def.base > 0) ? '<br><span style="font-weight:700;font-size:10px;color:#8C1A28;">' + escapeHtml(fMonto(def.base, def.moneda)) + '</span>' : '';
+                                    var sub = def.sub ? '<br><span style="font-weight:400;font-size:9px;color:#fff;letter-spacing:0.04em;">' + escapeHtml(def.sub) + '</span>' : '';
+                                    var base = (def.base > 0) ? '<br><span style="font-weight:700;font-size:10px;color:#fff;">' + escapeHtml(fMonto(def.base, def.moneda)) + '</span>' : '';
                                     return `<th class="cuota-header" title="${escapeHtml(def.tooltip)}">${escapeHtml(def.label)}${sub}${base}</th>`;
                                 }).join('')}
                                 <th class="tot-pagar">Total a pagar</th>
