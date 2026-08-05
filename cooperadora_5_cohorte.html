@@ -608,6 +608,13 @@
 
         /* Approval modal extras */
         .ap-info-box { background:#f8f6f1; padding:14px 16px; border-radius:10px; margin-bottom:16px; }
+        .leyenda-recibo { background:#fbf7ef; border:1px dashed #d9c48f; border-radius:10px; padding:10px 14px; }
+        .leyenda-label { font-size:10.5px; color:#8a6d1f; text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px; font-weight:700; }
+        .leyenda-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+        .leyenda-text { flex:1 1 auto; min-width:200px; font-family:'DM Mono','Courier New',monospace; font-size:13px; color:#5C1018; background:#fff; border:1px solid #e0d9c9; border-radius:7px; padding:8px 10px; user-select:all; word-break:break-word; }
+        .btn-copiar-leyenda { flex:0 0 auto; background:#5C1018; color:#fff; border:none; border-radius:7px; padding:8px 14px; font-size:12.5px; font-weight:700; cursor:pointer; font-family:inherit; transition:background .15s; }
+        .btn-copiar-leyenda:hover { background:#7a1620; }
+        .btn-copiar-leyenda.ok { background:var(--clr-success); }
         .ap-info-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; }
         .ap-info-item { display:flex; flex-direction:column; }
         .ap-info-lbl { font-size:11px; color:#767676; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:3px; }
@@ -1322,6 +1329,9 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Leyenda para el recibo (para pegar en el concepto de Tango) -->
+                <div id="apLeyendaRecibo" style="margin-bottom:14px;"></div>
 
                 <!-- Comprobante existente -->
                 <div id="aprobComprobanteArea" style="margin-bottom:14px;"></div>
@@ -3026,6 +3036,27 @@
             document.getElementById('apRechazoMotivo').value = '';
         }
 
+        /* Copiar la leyenda del recibo al portapapeles (para pegar en el concepto de Tango) */
+        function copiarLeyenda(btn) {
+            var cont = btn.parentNode.querySelector('.leyenda-text');
+            var txt = cont ? cont.textContent : '';
+            function marcarOk() {
+                btn.classList.add('ok');
+                btn.innerHTML = '✓ Copiado';
+                setTimeout(function() { btn.classList.remove('ok'); btn.innerHTML = '📋 Copiar'; }, 1800);
+            }
+            function fallback() {
+                var r = document.createRange(); r.selectNodeContents(cont);
+                var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+                try { document.execCommand('copy'); marcarOk(); } catch (e) {}
+            }
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(txt).then(marcarOk).catch(fallback);
+            } else {
+                fallback();
+            }
+        }
+
         function abrirAprobacionModal(cobroId, evt) {
             if (evt) evt.stopPropagation();
             _aprobacionCobroId = cobroId;
@@ -3089,6 +3120,23 @@
                     + ' · ' + apFmt(total))
                 : cobroId;
             document.getElementById('aprobModalSub').textContent = sub;
+
+            // Leyenda para el recibo de Tango — formato que parsea la automatización:
+            //   <N° programa> <Cohorte o Edición> <Período> <DNI>
+            var _progId = (vistaData && vistaData.programa && vistaData.programa.programaId) ? vistaData.programa.programaId : '';
+            var _perLey = (cuota && cuota.mes) ? cuota.mes : '';
+            var _dniLey = estudiante ? (estudiante.dni || '') : '';
+            var leyendaRecibo = [_progId, _cohTxt, _perLey, _dniLey].filter(function(x) {
+                var s = (x == null ? '' : String(x)).trim();
+                return s !== '' && s !== '—';
+            }).join(' ');
+            document.getElementById('apLeyendaRecibo').innerHTML =
+                '<div class="leyenda-recibo">'
+                + '<div class="leyenda-label">&#x1F9FE; Leyenda para el recibo</div>'
+                + '<div class="leyenda-row">'
+                +   '<code class="leyenda-text">' + escapeHtml(leyendaRecibo) + '</code>'
+                +   '<button class="btn-copiar-leyenda" onclick="copiarLeyenda(this)">&#x1F4CB; Copiar</button>'
+                + '</div></div>';
 
             var compArea = document.getElementById('aprobComprobanteArea');
             if (cuota && cuota.comprobanteUrl) {
