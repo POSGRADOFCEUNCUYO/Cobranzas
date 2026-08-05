@@ -131,7 +131,7 @@ function _procesarUnPDF(att, msg) {
   var pdfUrl   = _subirStorage(att.copyBlob(), fileName);
 
   // 6. Buscar la cuota en Supabase
-  var cobro = _buscarCobro(datos.dni_normalizado, datos.programa_id, datos.periodo_bd);
+  var cobro = _buscarCobro(datos.dni_normalizado, datos.programa_id, datos.periodo_bd, datos.cohorte_token);
   if (cobro === 'MULTIPLE') {
     _registrarPendiente(datos, 'Se encontraron múltiples cuotas para los mismos datos. Revisión manual requerida.', pdfUrl);
     return;
@@ -176,12 +176,14 @@ function _extraerTextoPDF(attachment) {
 
 // ══════════════════════════════════════════════════════════════
 // PARSEAR CAMPOS DEL RECIBO TANGO
-// Formato real en el PDF (cooperadora carga el Nº de programa en el concepto):
-//   Concepto : 11  cohorte 2025-2026 septiembre 2026
-//     · 11               → programa_id
-//     · cohorte 2025-2026 → nombre de cohorte ("Cohorte 2025-2026")
-//     · septiembre 2026   → periodo ("Septiembre de 2026")
-//   C.U.I.T. : 36190484   (DNI directo, o CUIT 20-24207661-3)
+// Formato del concepto (cooperadora lo copia desde la tarjeta del dashboard):
+//   Concepto : 11 Cohorte 2025-2026 Julio de 2026 25666258
+//     · 11                → programa_id  (número inicial)
+//     · Cohorte 2025-2026 → nombre de cohorte O edición (texto del medio, se compara con la BD)
+//     · Julio de 2026     → periodo ("Julio de 2026")
+//     · 25666258          → DNI del estudiante (número final)
+//   El nombre del medio NO se exige que diga "cohorte": puede ser una edición
+//   (ej: "Edición 3"). Se toma tal cual y se coteja contra cohortes.nombre.
 //   NºRecibo : X00004-00009901
 // ══════════════════════════════════════════════════════════════
 
@@ -192,33 +194,55 @@ function _parsearRecibo(texto) {
     dni_normalizado: null,
     concepto_raw:    null,
     programa_id:     null,  // ej: 11
-    cohorte_nombre:  null,  // ej: "Cohorte 2025-2026"
-    periodo_bd:      null   // ej: "Septiembre de 2026"
+    cohorte_token:   null,  // texto de cohorte/edición tal como se cargó (ej: "Cohorte 2025-2026")
+    periodo_bd:      null   // ej: "Julio de 2026"
   };
+
+  var MESES = 'enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre';
 
   // Nro. Recibo — ej: X00004-00009901 (letra + dígitos, guion, dígitos)
   var mRec = texto.match(/([A-Z]\d{3,6}[-]\d{5,10})/);
   if (mRec) datos.nro_recibo = mRec[1];
 
-  // CUIT / DNI del CLIENTE — formato con puntos "C.U.I.T. :" (el encabezado
-  // de la cooperadora usa "CUIT:" sin puntos, así no lo confundimos)
-  var mCuit = texto.match(/C\.U\.I\.T\.\s*:?\s*([\d.\-]{7,14})/);
-  if (mCuit) {
-    datos.cuit_raw        = mCuit[1];
-    datos.dni_normalizado = _normalizarDni(mCuit[1]);
+  // Concepto — FORMATO NUEVO: <programa> <cohorte/edición> <mes> [de] <año> <DNI>
+  //   ej: "11 Cohorte 2025-2026 Julio de 2026 25666258"
+  //   El nombre del medio (.+?) es no-codicioso: se corta en el primer mes.
+  var reNuevo = new RegExp(
+    'Concepto\\s*:?\\s*(\\d{1,3})\\s+(.+?)\\s+(' + MESES + ')\\s+(?:de\\s+)?(\\d{4})\\s+(\\d{7,8})\\b', 'i'
+  );
+  var mConc = texto.match(reNuevo);
+  if (mConc) {
+    datos.concepto_raw    = mConc[0].replace(/\s+/g, ' ').trim();
+    datos.programa_id     = parseInt(mConc[1], 10);
+    datos.cohorte_token   = mConc[2].replace(/\s+/g, ' ').trim();
+    datos.periodo_bd      = _normalizarMes(mConc[3]) + ' de ' + mConc[4];
+    datos.dni_normalizado = _normalizarDni(mConc[5]);
+  } else {
+    // FALLBACK (formato viejo, sin DNI en el concepto): "11 cohorte 2025-2026 septiembre 2026"
+    // Se mantiene por compatibilidad con recibos ya emitidos antes del cambio.
+    var reViejo = new RegExp(
+      'Concepto\\s*:?\\s*(\\d{1,3})\\s+(.+?)\\s+(' + MESES + ')\\s+(?:de\\s+)?(\\d{4})', 'i'
+    );
+    var mViejo = texto.match(reViejo);
+    if (mViejo) {
+      datos.concepto_raw  = mViejo[0].replace(/\s+/g, ' ').trim();
+      datos.programa_id   = parseInt(mViejo[1], 10);
+      datos.cohorte_token = mViejo[2].replace(/\s+/g, ' ').trim();
+      datos.periodo_bd    = _normalizarMes(mViejo[3]) + ' de ' + mViejo[4];
+    } else {
+      // Captura parcial para incluir en el aviso de pendiente
+      var mConc2 = texto.match(/Concepto\s*[:\s]+(.{5,90})/i);
+      if (mConc2) datos.concepto_raw = mConc2[1].trim();
+    }
   }
 
-  // Concepto — ej: "11  cohorte 2025-2026 septiembre 2026"
-  var mConc = texto.match(/Concepto\s*:?\s*(\d{1,3})\s+cohorte\s+(\d{4}-\d{4})\s+([a-záéíóúñ]+)\s+(?:de\s+)?(\d{4})/i);
-  if (mConc) {
-    datos.concepto_raw   = mConc[0].replace(/\s+/g, ' ').trim();
-    datos.programa_id    = parseInt(mConc[1], 10);
-    datos.cohorte_nombre = 'Cohorte ' + mConc[2];
-    datos.periodo_bd     = _normalizarMes(mConc[3]) + ' de ' + mConc[4];
-  } else {
-    // Captura parcial para incluir en el aviso de pendiente
-    var mConc2 = texto.match(/Concepto\s*[:\s]+(.{5,80})/i);
-    if (mConc2) datos.concepto_raw = mConc2[1].trim();
+  // DNI: si no vino en el concepto (formato viejo), tomarlo del campo CUIT del cliente.
+  if (!datos.dni_normalizado) {
+    var mCuit = texto.match(/C\.U\.I\.T\.\s*:?\s*([\d.\-]{7,14})/);
+    if (mCuit) {
+      datos.cuit_raw        = mCuit[1];
+      datos.dni_normalizado = _normalizarDni(mCuit[1]);
+    }
   }
 
   return datos;
@@ -259,13 +283,16 @@ function _normalizarMes(mes) {
 // BUSCAR COBRO EN SUPABASE
 // Identifica la cuota por: programa_id + periodo + DNI (recibo sin asignar).
 // El periodo (mes + año) ya determina la cuota exacta del programa.
+// Si hubiera más de una coincidencia (ej: estudiante en dos cohortes/ediciones
+// del mismo programa y periodo), desambigua comparando el nombre de
+// cohorte/edición del concepto contra cohortes.nombre en la BD.
 // Retorna: objeto cobro | null (no encontrado) | 'MULTIPLE'
 // ══════════════════════════════════════════════════════════════
 
-function _buscarCobro(dniNorm, programaId, periodoBD) {
+function _buscarCobro(dniNorm, programaId, periodoBD, cohorteToken) {
   // Buscar cobros del programa en ese periodo (sin filtrar por recibo_url para soportar pagos parciales)
   var cobros = _sbGet(
-    'cobros?select=cobro_id,dni' +
+    'cobros?select=cobro_id,dni,cohorte_id,cohortes(nombre)' +
     '&programa_id=eq.' + programaId +
     '&periodo=ilike.' + encodeURIComponent(periodoBD)
   );
@@ -276,8 +303,32 @@ function _buscarCobro(dniNorm, programaId, periodoBD) {
   });
 
   if (coincidencias.length === 0) return null;
-  if (coincidencias.length > 1)  return 'MULTIPLE';
-  return coincidencias[0];
+  if (coincidencias.length === 1) return coincidencias[0];
+
+  // Más de una cuota: desambiguar por el nombre de cohorte/edición del concepto.
+  if (cohorteToken) {
+    var tok = _normalizarTexto(cohorteToken);
+    var porNombre = coincidencias.filter(function(c) {
+      var nom = (c.cohortes && c.cohortes.nombre) ? _normalizarTexto(c.cohortes.nombre) : '';
+      return nom === tok;
+    });
+    if (porNombre.length === 1) return porNombre[0];
+  }
+  return 'MULTIPLE';
+}
+
+// ══════════════════════════════════════════════════════════════
+// NORMALIZAR TEXTO (para cotejar cohorte/edición): minúsculas, sin acentos,
+// y solo alfanumérico separado por espacios. "Cohorte 2025-2026" → "cohorte 2025 2026"
+// ══════════════════════════════════════════════════════════════
+
+function _normalizarTexto(s) {
+  return String(s == null ? '' : s)
+    .toLowerCase()
+    .replace(/[áàä]/g, 'a').replace(/[éèë]/g, 'e').replace(/[íìï]/g, 'i')
+    .replace(/[óòö]/g, 'o').replace(/[úùü]/g, 'u').replace(/ñ/g, 'n')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
 }
 
 // ══════════════════════════════════════════════════════════════
