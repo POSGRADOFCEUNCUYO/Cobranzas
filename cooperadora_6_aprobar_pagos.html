@@ -75,6 +75,13 @@
         .student-name { font-size: 17px; font-weight: 700; color: var(--primary); margin-bottom: 4px; }
         .student-sub { font-size: 13px; color: #888; }
         .student-badges { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        .leyenda-recibo { background: #fbf7ef; border: 1px dashed #d9c48f; border-radius: 10px; padding: 10px 14px; margin-top: 4px; text-align: left; }
+        .leyenda-label { font-size: 10.5px; color: #8a6d1f; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; font-weight: 700; }
+        .leyenda-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .leyenda-text { flex: 1 1 auto; min-width: 200px; font-family: 'DM Mono','Courier New',monospace; font-size: 13px; color: var(--primary); background: #fff; border: 1px solid #e0d9c9; border-radius: 7px; padding: 8px 10px; user-select: all; word-break: break-word; }
+        .btn-copiar-leyenda { flex: 0 0 auto; background: var(--primary); color: #fff; border: none; border-radius: 7px; padding: 8px 14px; font-size: 12.5px; font-weight: 700; cursor: pointer; font-family: inherit; transition: background .15s; }
+        .btn-copiar-leyenda:hover { opacity: .9; }
+        .btn-copiar-leyenda.ok { background: var(--success); }
 
         .badge {
             padding: 4px 12px; border-radius: 20px;
@@ -407,6 +414,27 @@
         } catch(e) { cards[3].querySelector('.summary-value').textContent = '0'; }
     }
 
+    /* ── COPIAR LEYENDA DEL RECIBO (para pegar en el concepto de Tango) ── */
+    function copiarLeyenda(btn) {
+        var cont = btn.parentNode.querySelector('.leyenda-text');
+        var txt = cont ? cont.textContent : '';
+        function marcarOk() {
+            btn.classList.add('ok');
+            btn.innerHTML = '✓ Copiado';
+            setTimeout(function() { btn.classList.remove('ok'); btn.innerHTML = '📋 Copiar'; }, 1800);
+        }
+        function fallback() {
+            var r = document.createRange(); r.selectNodeContents(cont);
+            var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+            try { document.execCommand('copy'); marcarOk(); } catch (e) {}
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(txt).then(marcarOk).catch(fallback);
+        } else {
+            fallback();
+        }
+    }
+
     /* ── RENDER LISTA ── */
     function renderLista() {
         var lista = document.getElementById('students-list');
@@ -458,14 +486,22 @@
         var apellido = est.apellido || '';
         var nombre = est.nombre || '';
         var nombreMostrado = apellido + (apellido && nombre ? ', ' : '') + nombre || '(sin nombre)';
-        var cuotaLabel = c.nro_cuota ? 'Cuota ' + c.nro_cuota : (c.concepto || '—');
         document.getElementById('modal-nombre').textContent = nombreMostrado;
         var _cohNombre = (c.cohortes && c.cohortes.nombre) ? c.cohortes.nombre : '';
-        document.getElementById('modal-sub').textContent = 'DNI: ' + (c.dni || '—')
-            + (c.programa_id ? ' · Prog. ' + c.programa_id : '')
-            + (_cohNombre ? ' · ' + _cohNombre : '')
-            + ' · ' + cuotaLabel
-            + (c.periodo ? ' · ' + c.periodo : '');
+        // Leyenda para el recibo de Tango — formato que parsea la automatización:
+        //   <N° programa> <Cohorte o Edición> <Período> <DNI>
+        var leyendaRecibo = [c.programa_id, _cohNombre, c.periodo, c.dni].filter(function(x) {
+            var s = (x == null ? '' : String(x)).trim();
+            return s !== '' && s !== '—';
+        }).join(' ');
+        document.getElementById('modal-sub').innerHTML =
+            '<div class="leyenda-recibo">'
+            + '<div class="leyenda-label">&#x1F9FE; Leyenda para el recibo</div>'
+            + '<div class="leyenda-row">'
+            +   '<code class="leyenda-text">' + esc(leyendaRecibo) + '</code>'
+            +   '<button class="btn-copiar-leyenda" onclick="copiarLeyenda(this)">&#x1F4CB; Copiar</button>'
+            + '</div>'
+            + '</div>';
         document.getElementById('modal-total-pagar').textContent = fMillones(c.monto_final);
         document.getElementById('modal-total-abonado').textContent = fMillones(
             (c.monto_abonado != null && Number(c.monto_abonado) > 0)
