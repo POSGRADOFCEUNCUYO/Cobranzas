@@ -254,7 +254,7 @@ function toggleEstado(cohorteId, nuevoEstado, event) {
 /* ══════════════════════════════════════════════
    RENDERIZAR COHORTES
    ══════════════════════════════════════════════ */
-function renderPrograma(data) {
+async function renderPrograma(data) {
     if (!data) {
         document.getElementById('cohortes-list').innerHTML = '<div class="loading-center">No se encontró el programa</div>';
         return;
@@ -273,6 +273,28 @@ function renderPrograma(data) {
         lista.innerHTML = '<div class="loading-center">No hay cohortes registradas para este programa</div>';
         return;
     }
+
+    // Ingresos proyectados por cohorte = lo que todavía falta cobrar (saldo de cuotas con
+    // monto definido y no pagadas). Excluye "A definir" (sin monto) y "No aplica". Baja a
+    // medida que pagan/aprueban, porque ahí pasa a estar ejecutado (Recaudado).
+    var proyMap = {};
+    try {
+        var _sb = await getSupabase();
+        var _prog = data.id || getParam('id');
+        var _rc = await _sb.from('cobros')
+            .select('cohorte_id,monto_final,monto_abonado,saldo_pendiente,no_aplica,moneda')
+            .eq('programa_id', _prog);
+        (_rc.data || []).forEach(function(c) {
+            if (c.no_aplica === true) return;          // No aplica
+            if (c.monto_final == null) return;         // A definir (sin monto)
+            if ((c.moneda || 'ARS') === 'USD') return; // solo ARS
+            var abonado = (c.monto_abonado != null && Number(c.monto_abonado) > 0)
+                ? Number(c.monto_abonado)
+                : Math.max(0, Number(c.monto_final || 0) - Number(c.saldo_pendiente || 0));
+            var pendiente = Math.max(0, Number(c.monto_final || 0) - abonado);
+            proyMap[c.cohorte_id] = (proyMap[c.cohorte_id] || 0) + pendiente;
+        });
+    } catch (e) { console.warn('No se pudo calcular ingresos proyectados:', e); }
 
     lista.innerHTML = cohortes.map(function(c) {
         var esActiva = c.estado === 'ACTIVO';
@@ -296,6 +318,7 @@ function renderPrograma(data) {
             + '<div class="stat-box"><div class="stat-label">Al día</div><div class="stat-value success">' + (c.alDia || 0) + '</div></div>'
             + '<div class="stat-box"><div class="stat-label">En mora</div><div class="stat-value' + ((c.enMora || 0) > 0 ? ' danger' : '') + '">' + (c.enMora || 0) + '</div></div>'
             + '<div class="stat-box"><div class="stat-label">Recaudado</div><div class="stat-value">' + fMillonesDual(c.recaudado, c.recaudadoUSD) + '</div></div>'
+            + '<div class="stat-box"><div class="stat-label">Ingresos Proyectados</div><div class="stat-value" style="color:#0369a1;">' + fMillones(proyMap[c.id] || 0) + '</div></div>'
             + '<div class="stat-box"><div class="stat-label">Egresos</div><div class="stat-value warning">' + fMillones(c.egresos) + '</div></div>'
             + '<div class="stat-box"><div class="stat-label">Saldo</div><div class="stat-value ' + (saldo >= 0 ? 'success' : 'danger') + '">' + fMillones(saldo) + (c.recaudadoUSD > 0 ? ' (ARS)' : '') + '</div></div>'
             + '</div></div>'
