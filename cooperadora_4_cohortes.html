@@ -337,7 +337,7 @@ function toggleEstado(cohorteId, nuevoEstado, event) {
     });
 }
 
-function renderCohortes(data) {
+async function renderCohortes(data) {
     var programa = data || {};
     var cohortes = programa.cohortes || [];
     _cohortes = cohortes;
@@ -354,6 +354,28 @@ function renderCohortes(data) {
         return;
     }
 
+    // Ingresos proyectados por cohorte = lo que todavía falta cobrar (saldo de cuotas con
+    // monto definido y no pagadas). Excluye "A definir" (sin monto) y "No aplica". Baja a
+    // medida que pagan/aprueban, porque ahí pasa a estar ejecutado (Recaudado).
+    var proyMap = {};
+    try {
+        var _sb = await getSupabase();
+        var _prog = programa.id || _programaId;
+        var _rc = await _sb.from('cobros')
+            .select('cohorte_id,monto_final,monto_abonado,saldo_pendiente,no_aplica,moneda')
+            .eq('programa_id', _prog);
+        (_rc.data || []).forEach(function(c) {
+            if (c.no_aplica === true) return;          // No aplica
+            if (c.monto_final == null) return;         // A definir (sin monto)
+            if ((c.moneda || 'ARS') === 'USD') return; // solo ARS
+            var abonado = (c.monto_abonado != null && Number(c.monto_abonado) > 0)
+                ? Number(c.monto_abonado)
+                : Math.max(0, Number(c.monto_final || 0) - Number(c.saldo_pendiente || 0));
+            var pendiente = Math.max(0, Number(c.monto_final || 0) - abonado);
+            proyMap[c.cohorte_id] = (proyMap[c.cohorte_id] || 0) + pendiente;
+        });
+    } catch (e) { console.warn('No se pudo calcular ingresos proyectados:', e); }
+
     lista.innerHTML = cohortes.map(function(c) {
         var esActiva = c.estado === 'ACTIVO';
         var saldo = (c.recaudado || 0) - (c.egresos || 0);
@@ -366,6 +388,7 @@ function renderCohortes(data) {
             + '<div class="stat-box"><div class="stat-label">AL DÍA</div><div class="stat-value" style="color:var(--clr-success)">' + (c.alDia || 0) + '</div></div>'
             + '<div class="stat-box"><div class="stat-label">EN MORA</div><div class="stat-value" style="color:' + ((c.enMora || 0) > 0 ? 'var(--clr-danger)' : '#999') + '">' + (c.enMora || 0) + '</div></div>'
             + '<div class="stat-box"><div class="stat-label">RECAUDADO</div><div class="stat-value">' + fM(c.recaudado) + '</div></div>'
+            + '<div class="stat-box"><div class="stat-label">INGRESOS PROYECTADOS</div><div class="stat-value" style="color:#0369a1">' + fM(proyMap[c.id] || 0) + '</div></div>'
             + '<div class="stat-box"><div class="stat-label">EGRESOS</div><div class="stat-value" style="color:var(--clr-warning)">' + fM(c.egresos) + '</div></div>'
             + '<div class="stat-box"><div class="stat-label">SALDO</div><div class="stat-value" style="color:' + (saldo >= 0 ? 'var(--clr-success)' : 'var(--clr-danger)') + '">' + fM(saldo) + '</div></div>'
             + '</div></div>'
