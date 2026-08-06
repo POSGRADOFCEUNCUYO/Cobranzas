@@ -79,8 +79,10 @@
         .btn-action { padding:5px 10px; border:none; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer; font-family:inherit; }
         .btn-comp  { background:#e0e7ff; color:#4338ca; }
         .btn-recibo{ background:#fef3c7; color:#92400e; }
+        .btn-subir { background:#dcfce7; color:#166534; }
         .btn-comp:hover  { background:#c7d2fe; }
         .btn-recibo:hover{ background:#fde68a; }
+        .btn-subir:hover { background:#bbf7d0; }
 
         /* SPINNER */
         .spinner-overlay { display:none; position:fixed; inset:0; background:rgba(255,255,255,0.78); z-index:9000; align-items:center; justify-content:center; flex-direction:column; gap:14px; }
@@ -192,6 +194,9 @@
         <div class="card-title">🧾 Facturas</div>
         <div id="facturas-list"><p style="color:#9ca3af;font-size:13px;">Cargando…</p></div>
     </div>
+
+    <!-- Input oculto para subir comprobante de una cuota -->
+    <input type="file" id="comp-file-input" accept=".pdf,.jpg,.jpeg,.png,.webp" style="display:none;" onchange="onComprobanteFile(this)">
 
 </div>
 
@@ -339,6 +344,10 @@ function renderCobros(cobros) {
         var docs = '';
         if (c.comprobante_url) docs += '<button class="btn-action btn-comp" onclick="verDoc(\''+esc(c.comprobante_url)+'\')">📎 Comp.</button> ';
         (_recibosTangoMap[c.cobro_id]||[]).forEach(function(r,i){ var lbl=(_recibosTangoMap[c.cobro_id]||[]).length>1?'🧾 Recibo '+(i+1):'🧾 Recibo'; docs+='<button class="btn-action btn-recibo" onclick="verDoc(\''+esc(r.pdf_url)+'\')">'+lbl+'</button>'; });
+        if (estado !== 'NO_APLICA' && estado !== 'A_DEFINIR') {
+            var lblSub = c.comprobante_url ? '🔄 Reemplazar' : '⬆️ Subir comp.';
+            docs += '<button class="btn-action btn-subir" onclick="pickComprobante(\''+c.cobro_id+'\')">'+lblSub+'</button> ';
+        }
 
         var vence = c.fecha_vencimiento ? c.fecha_vencimiento.split('-').reverse().join('/') : '—';
         return '<tr>'
@@ -369,6 +378,53 @@ async function verDoc(url) {
         window.open(firmada || url, '_blank');
     } catch(e) {
         window.open(url, '_blank');
+    }
+}
+
+// ── Subir comprobante de una cuota (admin, en nombre del estudiante) ──
+var _compCobroId = null;
+function pickComprobante(cobroId) {
+    _compCobroId = cobroId;
+    document.getElementById('comp-file-input').click();
+}
+async function onComprobanteFile(inp) {
+    var file = inp.files && inp.files[0];
+    inp.value = '';
+    if (!file || !_compCobroId) return;
+    var cobroId = _compCobroId;
+    spin(true);
+    try {
+        var sb = await getSupabase();
+        // Estado y datos actuales, para no pisar pagos ya aprobados ni datos existentes.
+        var rc = await sb.from('cobros').select('estado,fecha_pago,monto_transferido,monto_final').eq('cobro_id', cobroId).single();
+        if (rc.error) throw new Error(rc.error.message);
+        var cur = rc.data;
+
+        // Subida al bucket "comprobantes" (RLS permite a cualquier autenticado).
+        var safeName = file.name.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9._-]/g, '_');
+        var path = DNI + '/' + Date.now() + '_' + safeName;
+        var up = await sb.storage.from('comprobantes').upload(path, file);
+        if (up.error) throw new Error(up.error.message);
+        var url = sb.storage.from('comprobantes').getPublicUrl(path).data.publicUrl;
+
+        var ahora = new Date().toISOString();
+        var upd = { comprobante_url: url, comprobante_fecha: ahora };
+        // Solo pasa a "En revisión" si no estaba ya abonada o con pago parcial aprobado.
+        if (cur.estado !== 'ABONADA' && cur.estado !== 'PAGO_PARCIAL') upd.estado = 'PENDIENTE';
+        if (!cur.fecha_pago) upd.fecha_pago = ahora.split('T')[0];
+        if (cur.monto_transferido == null && cur.monto_final != null) upd.monto_transferido = Number(cur.monto_final);
+
+        var w = await sb.from('cobros').update(upd).eq('cobro_id', cobroId);
+        if (w.error) throw new Error(w.error.message);
+
+        toast('✅ Comprobante subido. Queda pendiente de aprobación por cooperadora.', 'ok');
+        await cargar();
+    } catch(e) {
+        console.error('Error al subir comprobante:', e);
+        toast('❌ No se pudo subir: ' + (e.message || e), 'err');
+    } finally {
+        spin(false);
+        _compCobroId = null;
     }
 }
 </script>
