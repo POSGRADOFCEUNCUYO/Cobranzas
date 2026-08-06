@@ -2145,7 +2145,7 @@ function _dlPlantilla() {
     var cabecera = [
         'dni','apellido','nombre','email',
         'descuento_porcentaje','descuento_desde','descuento_hasta',
-        'concepto','periodo','fecha_vencimiento','monto_original','monto_abonado','fecha_pago','estado','moneda','es_readmision'
+        'concepto','periodo','fecha_vencimiento','monto_original','monto_abonado','fecha_pago','estado','moneda','es_readmision','sin_descuento'
     ];
     var instrucciones = [
         'Obligatorio','Obligatorio','Obligatorio','Obligatorio',
@@ -2155,17 +2155,18 @@ function _dlPlantilla() {
         'Precio base sin descuento','0 si no pagó nada','DD/MM/AAAA (solo si monto_abonado > 0)',
         'Opcional: ABONADA / EN_MORA / PAGO_PARCIAL / NO_ABONADA / A_DEFINIR / NO_APLICA (si se omite se calcula automáticamente)',
         'Opcional: ARS o USD (si se omite = ARS)',
-        'SI o 1 si es cuota de readmisión, vacío o NO si es cuota normal'
+        'SI o 1 si es cuota de readmisión, vacío o NO si es cuota normal',
+        'Opcional: SI si esta cuota NO lleva el descuento del alumno (ej: inscripción). Vacío = sí lleva'
     ];
     var ejemplo = [
         '30123456','González','María','maria@email.com',
         '5','01/04/2026','',
-        'Readmisión','Abril de 2026','15/04/2026','90000','0','','NO_ABONADA','ARS','SI'
+        'Readmisión','Abril de 2026','15/04/2026','90000','0','','NO_ABONADA','ARS','SI',''
     ];
     var ejemplo2 = [
         '30123456','González','María','maria@email.com',
         '5','01/04/2026','',
-        'Cuota 1','Mayo de 2026','15/05/2026','90000','90000','15/05/2026','ABONADA','ARS',''
+        'Cuota 1','Mayo de 2026','15/05/2026','90000','90000','15/05/2026','ABONADA','ARS','',''
     ];
 
     var ws = XLSX.utils.aoa_to_sheet([cabecera, instrucciones, ejemplo, ejemplo2]);
@@ -2265,6 +2266,8 @@ function _impBuildEstMap(rows) {
             aplicaDescuento = fechaVto >= estMap[dni].descuento_desde;
         if (aplicaDescuento && estMap[dni].descuento_hasta && fechaVto)
             aplicaDescuento = aplicaDescuento && (fechaVto <= estMap[dni].descuento_hasta);
+        // Excepción por fila: si "sin_descuento" = SI/1, esa cuota NO lleva el descuento del alumno.
+        if (/^(si|sí|s|1|x|true|yes)$/i.test(String(r.sin_descuento || '').trim())) aplicaDescuento = false;
         var montoFinal = (montoOrig !== null && aplicaDescuento)
             ? redondear2(montoOrig * (1 - pct / 100)) : montoOrig;
         var abonado = redondear2(parseFloat(r.monto_abonado) || 0);
