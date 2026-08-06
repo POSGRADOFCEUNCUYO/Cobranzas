@@ -226,65 +226,8 @@
         <div class="card">
             <h2 class="card-title">📅 Proyección Mensual de Ingresos</h2>
             <div class="timeline">
-                <div class="timeline-item">
-                    <div class="timeline-dot"></div>
-                    <div class="timeline-content">
-                        <div class="timeline-month">Abril 2026</div>
-                        <div class="timeline-amount">$4,847,200</div>
-                        <div class="timeline-detail">215 cuotas vencen | 147 estudiantes</div>
-                        <div class="timeline-detail">Proyección: $4,241,300 (87.5% cobranza)</div>
-                    </div>
-                </div>
+                <div style="padding:20px;color:#9ca3af;">Cargando proyección…</div>
                 
-                <div class="timeline-item">
-                    <div class="timeline-dot"></div>
-                    <div class="timeline-content">
-                        <div class="timeline-month">Mayo 2026</div>
-                        <div class="timeline-amount">$5,125,800</div>
-                        <div class="timeline-detail">238 cuotas vencen | 168 estudiantes</div>
-                        <div class="timeline-detail">Proyección: $4,485,075 (87.5% cobranza)</div>
-                    </div>
-                </div>
-                
-                <div class="timeline-item">
-                    <div class="timeline-dot"></div>
-                    <div class="timeline-content">
-                        <div class="timeline-month">Junio 2026</div>
-                        <div class="timeline-amount">$4,950,600</div>
-                        <div class="timeline-detail">225 cuotas vencen | 152 estudiantes</div>
-                        <div class="timeline-detail">Proyección: $4,331,775 (87.5% cobranza)</div>
-                    </div>
-                </div>
-                
-                <div class="timeline-item">
-                    <div class="timeline-dot"></div>
-                    <div class="timeline-content">
-                        <div class="timeline-month">Julio 2026</div>
-                        <div class="timeline-amount">$3,842,300</div>
-                        <div class="timeline-detail">189 cuotas vencen | 128 estudiantes</div>
-                        <div class="timeline-detail">Proyección: $3,362,012 (87.5% cobranza)</div>
-                    </div>
-                </div>
-                
-                <div class="timeline-item">
-                    <div class="timeline-dot"></div>
-                    <div class="timeline-content">
-                        <div class="timeline-month">Agosto 2026</div>
-                        <div class="timeline-amount">$4,625,100</div>
-                        <div class="timeline-detail">208 cuotas vencen | 142 estudiantes</div>
-                        <div class="timeline-detail">Proyección: $4,046,962 (87.5% cobranza)</div>
-                    </div>
-                </div>
-                
-                <div class="timeline-item">
-                    <div class="timeline-dot"></div>
-                    <div class="timeline-content">
-                        <div class="timeline-month">Septiembre 2026</div>
-                        <div class="timeline-amount">$4,454,200</div>
-                        <div class="timeline-detail">192 cuotas vencen | 135 estudiantes</div>
-                        <div class="timeline-detail">Proyección: $3,897,425 (87.5% cobranza)</div>
-                    </div>
-                </div>
             </div>
         </div>
 
@@ -398,10 +341,12 @@ async function cargarDatos() {
         cobros.forEach(function(c) {
             var ml = mesLabel(c.fecha_vencimiento);
             if (!ml) return;
-            if (!byMes[ml]) byMes[ml] = { ars: 0, usd: 0 };
+            if (!byMes[ml]) byMes[ml] = { ars: 0, usd: 0, cuotas: 0, dnis: {} };
             var _m = Number(c.monto_final||0);
             if (c.moneda === 'USD') byMes[ml].usd += _m;
             else byMes[ml].ars += _m;
+            byMes[ml].cuotas++;
+            if (c.dni) byMes[ml].dnis[c.dni] = true;
         });
 
         // Sort months chronologically
@@ -593,22 +538,29 @@ async function cargarDatos() {
                 + '<td></td>';
         }
 
-        // Update timeline section (replace with real monthly items)
+        // Update timeline section (replace with real monthly items).
+        // Solo se muestran los meses que tienen cuotas por vencer (se omiten los vacíos).
         var timeline = document.querySelector('.timeline');
-        if (timeline && chartLabels.length > 0) {
-            timeline.innerHTML = chartLabels.map(function(ml, i) {
+        if (timeline) {
+            var filas = chartLabels.map(function(ml, i) {
                 var base = chartBase[i] || 0;
                 var baseUsd = chartBaseUsd[i] || 0;
+                if (base <= 0 && baseUsd <= 0) return '';   // mes sin cuotas: no se muestra
                 var real = realData[i] || 0;
                 var realUsd = Math.round(baseUsd * 0.87);
+                var info = byMes[ml] || { cuotas: 0, dnis: {} };
+                var nCuotas = info.cuotas || 0;
+                var nEst = Object.keys(info.dnis || {}).length;
                 return '<div class="timeline-item">'
                     + '<div class="timeline-dot"></div>'
                     + '<div class="timeline-content">'
                     + '<div class="timeline-month">' + esc(ml) + '</div>'
                     + '<div class="timeline-amount">' + fMontoDual(base, baseUsd) + '</div>'
+                    + '<div class="timeline-detail">' + nCuotas + ' cuotas vencen | ' + nEst + ' estudiantes</div>'
                     + '<div class="timeline-detail">Proyección realista: ' + fMontoDual(real, realUsd) + ' (87% cobranza)</div>'
                     + '</div></div>';
             }).join('');
+            timeline.innerHTML = filas || '<div style="padding:20px;color:#9ca3af;">No hay cuotas futuras proyectadas.</div>';
         }
 
         // Update filter band
