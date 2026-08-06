@@ -43,6 +43,7 @@
         .rADMINISTRADOR{background:#e3f2fd;color:#1565c0}.rCOOPERADORA{background:#f3e5f5;color:#7b1fa2}
         .rCOORDINADOR{background:#fff3e0;color:#e65100}.rESTUDIANTE{background:#e8f5e9;color:#2e7d32}
         .rSECRETARIA{background:#fce4ec;color:#c2185b}.rPROFESOR{background:#e8eaf6;color:#283593}
+        .rGERENTE_COOPERADORA{background:#ede7f6;color:#5e35b1}
         .sb2{padding:3px 9px;border-radius:10px;font-size:11px;font-weight:700}
         .sACTIVO{background:#d1fae5;color:#065f46}.sBLOQUEADO{background:#fee2e2;color:#991b1b}.sPASIVO{background:#fef3c7;color:#92400e}
         .abts{display:flex;gap:4px;flex-wrap:wrap}
@@ -140,6 +141,7 @@
                 <button class="fb" data-r="ADMINISTRADOR" onclick="setRol(this)">Admin</button>
                 <button class="fb" data-r="SECRETARIA" onclick="setRol(this)">Secretaría</button>
                 <button class="fb" data-r="COOPERADORA" onclick="setRol(this)">Cooperadora</button>
+                <button class="fb" data-r="GERENTE_COOPERADORA" onclick="setRol(this)">Gerente Coop.</button>
                 <button class="fb" data-r="COORDINADOR" onclick="setRol(this)">Coordinador</button>
                 <button class="fb" data-r="PROFESOR" onclick="setRol(this)">Profesor</button>
                 <button class="fb" data-r="ESTUDIANTE" onclick="setRol(this)">Estudiante</button>
@@ -194,6 +196,7 @@
                     <option value="ADMINISTRADOR">Administrador</option>
                     <option value="SECRETARIA">Secretaría de Posgrado</option>
                     <option value="COOPERADORA">Cooperadora</option>
+                    <option value="GERENTE_COOPERADORA">Gerente Cooperadora</option>
                     <option value="COORDINADOR">Coordinador/a</option>
                     <option value="PROFESOR">Profesor/a</option>
                     <option value="ESTUDIANTE">Estudiante</option>
@@ -280,7 +283,7 @@
             <div class="abox" style="background:#e0f2fe;border-left:4px solid #0284c7;color:#075985;">
                 <strong>Columnas requeridas (fila 1 = cabecera):</strong>
                 <div style="margin-top:6px;font-family:monospace;font-size:12px;background:#fff;padding:8px;border-radius:6px;">apellido · nombre · dni · email · password · rol</div>
-                <div style="margin-top:6px;font-size:12px;"><strong>Roles:</strong> ADMINISTRADOR · SECRETARIA · COOPERADORA · COORDINADOR · PROFESOR · ESTUDIANTE</div>
+                <div style="margin-top:6px;font-size:12px;"><strong>Roles:</strong> ADMINISTRADOR · SECRETARIA · COOPERADORA · GERENTE_COOPERADORA · COORDINADOR · PROFESOR · ESTUDIANTE</div>
                 <button onclick="dlPlantillaUsuarios()" style="margin-top:10px;display:inline-flex;align-items:center;gap:6px;padding:7px 14px;background:#0284c7;color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;">📄 Descargar plantilla .xlsx</button>
             </div>
             <div class="mf" style="margin-top:14px;">
@@ -366,7 +369,7 @@ async function cargar(){
     finally{spin(false);}
 }
 
-var _RL={ADMINISTRADOR:'Administrador',SECRETARIA:'Secretaría',COOPERADORA:'Cooperadora',COORDINADOR:'Coordinador/a',PROFESOR:'Profesor/a',ESTUDIANTE:'Estudiante'};
+var _RL={ADMINISTRADOR:'Administrador',SECRETARIA:'Secretaría',COOPERADORA:'Cooperadora',GERENTE_COOPERADORA:'Gerente Cooperadora',COORDINADOR:'Coordinador/a',PROFESOR:'Profesor/a',ESTUDIANTE:'Estudiante'};
 var _SL={ACTIVO:'Activo',BLOQUEADO:'Bloqueado',PASIVO:'Pasivo'};
 
 function renderTabla(){
@@ -634,7 +637,7 @@ async function doImp(){
         var wb=XLSX.read(data,{type:'array'});
         var rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:''});
         if(!rows.length){toast('Archivo vacío','err');return;}
-        var rolesOK=['ADMINISTRADOR','SECRETARIA','COOPERADORA','COORDINADOR','PROFESOR','ESTUDIANTE'];
+        var rolesOK=['ADMINISTRADOR','SECRETARIA','COOPERADORA','GERENTE_COOPERADORA','COORDINADOR','PROFESOR','ESTUDIANTE'];
         var sb=await getSupabase();var ok=0,errs=[];
         var sess2=await sb.auth.getSession();
         var tok2=sess2.data.session?sess2.data.session.access_token:'';

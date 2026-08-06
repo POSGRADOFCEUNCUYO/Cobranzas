@@ -168,8 +168,11 @@ async function logout() {
 }
 
 function getSesion() {
-    const rol = localStorage.getItem('sigpo_rol');
+    let rol = localStorage.getItem('sigpo_rol');
     if (!rol) return null;
+    // GERENTE_COOPERADORA es un clon de SECRETARIA: en todo el frontend se comporta
+    // igual (mismas pantallas, mismos guardianes). El rol real queda en la BD.
+    if (rol === 'GERENTE_COOPERADORA') rol = 'SECRETARIA';
     return {
         rol:         rol,
         nombre:      localStorage.getItem('sigpo_nombre'),
@@ -256,6 +259,7 @@ const RUTAS_POR_ROL = {
     'COORDINADOR':   'coordinador_1_dashboard.html',
     'PROFESOR':      'profesor_1_dashboard.html',
     'SECRETARIA':    'secretaria_1_dashboard.html',
+    'GERENTE_COOPERADORA': 'secretaria_1_dashboard.html',
     'COOPERADORA':   'cooperadora_2_Dashboard.html',
     'ADMINISTRADOR': 'administrador_2_dashboard.html'
 };
