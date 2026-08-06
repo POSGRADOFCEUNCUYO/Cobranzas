@@ -665,7 +665,8 @@ function abrirEjecutar(id) {
     }
     document.getElementById('ejec-resumen').innerHTML = resumen;
     document.getElementById('ejec-fecha').value       = new Date().toISOString().split('T')[0];
-    document.getElementById('ejec-comprobante').value = '';
+    // Pre-cargar el N° de comprobante que se cargó al proyectar el gasto (editable)
+    document.getElementById('ejec-comprobante').value = (e && e.nro_comprobante) ? e.nro_comprobante : '';
     document.getElementById('ejec-monto').value       = pendiente || '';
     document.getElementById('ejec-obs').value         = '';
     var hint = document.querySelector('#ejec-monto + .form-hint');
