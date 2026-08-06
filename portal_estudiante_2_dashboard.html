@@ -777,7 +777,7 @@
             var ts     = Date.now();
             var storagePath = dni + '-' + cohorteId + '-' + ts + '.pdf';
             var pdfPublicUrl = SUPABASE_STORAGE_URL + storagePath;
-            var verifyUrl = 'https://anneris1983.github.io/SiGPo/verificar_libre_deuda.html?codigo=' + encodeURIComponent(codigo);
+            var verifyUrl = 'https://posgradofceuncuyo.github.io/Cobranzas/verificar_libre_deuda.html?codigo=' + encodeURIComponent(codigo);
 
             // ── 1. QR Code como data URL ──────────────────────────────────
             var qrDataUrl = await QRCode.toDataURL(verifyUrl, {

@@ -879,7 +879,7 @@ async function rechazarPago(cobroId, forzar, motivoRechazo) {
                            + '  • Programa: ' + prog.nombre + '\n\n'
                            + (motivo ? 'Motivo del rechazo: ' + motivo + '\n\n' : '')
                            + 'Por favor, volvé a ingresar al portal, verificá los datos y subí el comprobante correcto.\n\n'
-                           + 'Portal de estudiantes: https://anneris1983.github.io/SiGPo/portal_login.html\n\n'
+                           + 'Portal de estudiantes: https://posgradofceuncuyo.github.io/Cobranzas/portal_login.html\n\n'
                            + 'Ante cualquier consulta, respondé este correo.\n\n'
                            + 'Secretaría de Posgrado — FCE UNCUYO',
                 reply_to:    null,

@@ -861,25 +861,61 @@ async function reclamarSel() {
             var asuntoFinal = asunto.replace(/\{(\w+)\}/g, function(m,k){ return vars[k]!==undefined?vars[k]:m; });
             var cuerpoBase;
             if (nVenc > 1) {
-                cuerpoBase = 'Estimado/a ' + (est.nombre||'') + ' ' + (est.apellido||'') + ',\n\nLe informamos que las siguientes ' + nVenc + ' cuotas del programa "' + (V.data.programa.nombre||'') + '" se encuentran VENCIDAS.\n\nSaldo pendiente: $' + montoStr + '\nCBU: ' + cbu + ' | Alias: ' + alias + '\n\nLe solicitamos regularizar su situación a la brevedad.\n\nSecretaría de Posgrado - FCE UNCUYO';
+                cuerpoBase = 'Estimado/a ' + (est.nombre||'') + ' ' + (est.apellido||'') + ',\n\nLe informamos que las siguientes ' + nVenc + ' cuotas del programa "' + (V.data.programa.nombre||'') + '" se encuentran VENCIDAS. Le solicitamos regularizar su situación a la brevedad.';
             } else {
                 cuerpoBase = cuerpo.replace(/\{(\w+)\}/g, function(m,k){ return vars[k]!==undefined?vars[k]:m; });
             }
-            var detalle = cobrosVenc.length ? (
-                '\n\n──────────────────────────────' +
-                '\nCUOTAS VENCIDAS:' +
-                '\n──────────────────────────────' +
-                cobrosVenc.map(function(c){
-                    return '\n  • ' + c.concepto + (c.periodo?' ('+c.periodo+')':'') +
-                           ' — Saldo: $' + Number(c.saldo_pendiente||0).toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2}) +
-                           ' — Vence: ' + (c.fecha_vencimiento||'').split('T')[0].split('-').reverse().join('/');
-                }).join('') +
-                '\n──────────────────────────────' +
-                '\nTOTAL VENCIDO: $' + totalSaldo.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2}) +
-                '\n\nPara regularizar: CBU: ' + cbu + '  |  Alias: ' + alias +
-                '\n\nSubí tu comprobante en el portal: https://anneris1983.github.io/SiGPo/portal_login.html'
-            ) : '';
-            emails.push({ to: est.email, subject: asuntoFinal, body: cuerpoBase + detalle, dni: est.dni });
+
+            var _portalUrl = 'https://posgradofceuncuyo.github.io/Cobranzas/portal_login.html';
+            var _fMon = function(n){ return '$' + Number(n||0).toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2}); };
+            var _fVto = function(f){ return f ? String(f).split('T')[0].split('-').reverse().join('/') : '—'; };
+
+            var _detalleHtml = '';
+            if (cobrosVenc.length) {
+                var _filas = cobrosVenc.map(function(c){
+                    var _e = (typeof etiquetaEstado === 'function') ? etiquetaEstado(c._re) : (c._re||'');
+                    return '<tr>'
+                        + '<td style="padding:7px 10px;border-bottom:1px solid #e5e7eb;">' + escapeHtml(c.concepto||'—') + '</td>'
+                        + '<td style="padding:7px 10px;border-bottom:1px solid #e5e7eb;">' + escapeHtml(c.periodo||'—') + '</td>'
+                        + '<td style="padding:7px 10px;border-bottom:1px solid #e5e7eb;">' + escapeHtml(_fVto(c.fecha_vencimiento)) + '</td>'
+                        + '<td style="padding:7px 10px;border-bottom:1px solid #e5e7eb;text-align:right;font-weight:700;">' + _fMon(c.saldo_pendiente) + '</td>'
+                        + '<td style="padding:7px 10px;border-bottom:1px solid #e5e7eb;color:#c0392b;">' + escapeHtml(_e) + '</td>'
+                        + '</tr>';
+                }).join('');
+                _detalleHtml =
+                    '<table style="width:100%;border-collapse:collapse;font-size:13px;margin:0 0 6px;">'
+                    + '<tr style="background:#5C1018;color:#fff;">'
+                    +   '<th style="padding:8px 10px;text-align:left;">Concepto</th>'
+                    +   '<th style="padding:8px 10px;text-align:left;">Período</th>'
+                    +   '<th style="padding:8px 10px;text-align:left;">Vencimiento</th>'
+                    +   '<th style="padding:8px 10px;text-align:right;">Saldo</th>'
+                    +   '<th style="padding:8px 10px;text-align:left;">Estado</th>'
+                    + '</tr>' + _filas + '</table>'
+                    + '<p style="font-size:15px;text-align:right;margin:6px 0 18px;">Total vencido: <strong style="color:#c0392b;font-size:18px;">' + _fMon(totalSaldo) + '</strong></p>';
+            }
+
+            var _bodyHtml =
+                '<div style="font-family:Arial,Helvetica,sans-serif;color:#1e293b;max-width:620px;margin:0 auto;">'
+                + '<div style="background:#5C1018;color:#fff;padding:20px 24px;border-radius:8px 8px 0 0;">'
+                +   '<div style="font-size:18px;font-weight:700;">Secretaría de Posgrado — FCE UNCUYO</div>'
+                +   '<div style="font-size:12px;opacity:.85;margin-top:2px;">Sistema de Gestión de Posgrado</div>'
+                + '</div>'
+                + '<div style="background:#f8f6f1;padding:22px 24px;">'
+                +   '<p style="font-size:14px;line-height:1.6;margin:0 0 16px;">' + escapeHtml(cuerpoBase).replace(/\n/g,'<br>') + '</p>'
+                +   _detalleHtml
+                +   '<div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:14px 16px;font-size:14px;line-height:1.7;">'
+                +     '<div style="font-weight:700;color:#5C1018;margin-bottom:4px;">Datos para la transferencia</div>'
+                +     '<div><strong>CBU:</strong> ' + escapeHtml(cbu) + '</div>'
+                +     '<div><strong>Alias:</strong> ' + escapeHtml(alias) + '</div>'
+                +   '</div>'
+                +   '<p style="font-size:14px;line-height:1.6;margin:16px 0 10px;">Una vez realizado el pago, ingresá al portal para subir el comprobante:</p>'
+                +   '<p style="margin:0 0 6px;"><a href="' + _portalUrl + '" style="display:inline-block;background:#5C1018;color:#fff;text-decoration:none;padding:11px 22px;border-radius:8px;font-weight:700;font-size:14px;">Ingresar al portal</a></p>'
+                +   '<p style="font-size:12px;color:#64748b;margin:8px 0 0;word-break:break-all;">' + _portalUrl + '</p>'
+                + '</div>'
+                + '<div style="background:#e5e7eb;padding:10px 24px;font-size:11px;color:#6b7280;border-radius:0 0 8px 8px;">Mensaje automático del sistema SiGPo. Por consultas, comuníquese con la Secretaría de Posgrado.</div>'
+                + '</div>';
+
+            emails.push({ to: est.email, subject: asuntoFinal, body: _bodyHtml, dni: est.dni });
         });
 
         var rows = emails.map(function(e){ return {

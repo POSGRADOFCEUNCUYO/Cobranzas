@@ -458,7 +458,7 @@ function _htmlRecordatorio(nombre, prog, mesNom, anio, cuotasMes, cc) {
     _filasCC(cc) + '</table>' +
     '<div style="margin-top:18px;padding:14px 18px;background:#f0f4ff;border-left:4px solid #1e3a5f;border-radius:6px;">' +
     'Para subir su comprobante de pago, ingrese al portal: ' +
-    '<a href="https://anneris1983.github.io/SiGPo/portal_login.html" style="color:#1e3a5f;font-weight:700;">https://anneris1983.github.io/SiGPo/portal_login.html</a>' +
+    '<a href="https://posgradofceuncuyo.github.io/Cobranzas/portal_login.html" style="color:#1e3a5f;font-weight:700;">https://posgradofceuncuyo.github.io/Cobranzas/portal_login.html</a>' +
     '</div>'
   );
 }
@@ -482,7 +482,7 @@ function _htmlReclamo(nombre, prog, cuotasMora, cc, deuda, mesNom, anio) {
     _filasCC(cc) + '</table>' +
     '<div style="margin-top:18px;padding:14px 18px;background:#f0f4ff;border-left:4px solid #1e3a5f;border-radius:6px;">' +
     'Para subir su comprobante de pago y regularizar su situación, ingrese al portal: ' +
-    '<a href="https://anneris1983.github.io/SiGPo/portal_login.html" style="color:#1e3a5f;font-weight:700;">https://anneris1983.github.io/SiGPo/portal_login.html</a>' +
+    '<a href="https://posgradofceuncuyo.github.io/Cobranzas/portal_login.html" style="color:#1e3a5f;font-weight:700;">https://posgradofceuncuyo.github.io/Cobranzas/portal_login.html</a>' +
     '</div>'
   );
 }
