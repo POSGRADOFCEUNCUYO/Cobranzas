@@ -1788,8 +1788,9 @@ function abrirCorreo() {
     abrir('modal-correo');
 }
 function cargarPlantilla() {
-    var t = document.getElementById('c-tipo').value;
-    var tpl = PLANTILLAS[t] || DEFAULT_PLANTILLAS[t];
+    var t = document.getElementById('c-tipo').value || 'recordatorio';
+    var tpl = PLANTILLAS[t] || DEFAULT_PLANTILLAS[t] || PLANTILLAS.recordatorio || DEFAULT_PLANTILLAS.recordatorio;
+    if (!tpl) return;
     document.getElementById('c-asunto').value = tpl.asunto;
     document.getElementById('c-cuerpo').value = tpl.cuerpo;
 }
@@ -1816,7 +1817,7 @@ async function reclamarSel() {
             V.data.programa.nombre + ' · ' + V.data.cohorte.nombre;
     }
     // Pre-seleccionar tipo reclamo si hay cuotas vencidas
-    document.getElementById('c-tipo').value = 'reclamo';
+    document.getElementById('c-tipo').value = 'recordatorio';
     cargarPlantilla();
     // Cambiar footer para enviar en vez de solo guardar plantilla
     document.getElementById('btn-enviar-notif').style.display = 'inline-flex';

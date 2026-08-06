@@ -810,8 +810,9 @@ function deselAll() {
 
 function abrirCorreo() { cargarPlantilla(); abrir('modal-correo'); }
 function cargarPlantilla() {
-    const t = document.getElementById('c-tipo').value;
-    const plant = V.plantillas[t] || PLANTILLAS_DEF[t];
+    const t = document.getElementById('c-tipo').value || 'recordatorio';
+    const plant = V.plantillas[t] || PLANTILLAS_DEF[t] || V.plantillas.recordatorio || PLANTILLAS_DEF.recordatorio;
+    if (!plant) return;
     document.getElementById('c-asunto').value = plant.asunto;
     document.getElementById('c-cuerpo').value = plant.cuerpo;
 }
