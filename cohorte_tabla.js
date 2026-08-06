@@ -222,10 +222,13 @@ async function actualizarStats() {
     setTxt('s-total',   st.total);
     setTxt('s-activos', st.activos);
     setTxt('s-bajas',   st.bajas);
-    // 's-aldia' se rotula "Pagados" en la vista: estudiantes con TODAS las cuotas abonadas
-    setTxt('s-aldia',   st.pagados);
+    // 's-cancela' = "Cancela carrera": estudiantes activos con TODAS las cuotas abonadas
+    setTxt('s-cancela', st.pagados);
+    // 's-pendiente' = "Pendiente": cuotas esperando aprobación de cooperadora
+    setTxt('s-pendiente', st.pendiente);
     setTxt('s-mora',    st.en_mora);
-    setTxt('s-parcial', st.pago_parcial);
+    // 's-aldia' = "Al día": activos, no en mora y que aún no cancelaron la carrera
+    setTxt('s-aldia',   st.al_dia);
     setTxt('s-readmision', st.readmision);
     setTxt('s-mora-cuotas', st.cuotas_en_mora);
     // ARS y USD NUNCA se suman entre sí

@@ -1203,9 +1203,11 @@
                     <div class="hstat"><div class="hstat-lbl">Total</div><div class="hstat-val" id="statEstudiantes">0</div></div>
                     <div class="hstat"><div class="hstat-lbl">Activos</div><div class="hstat-val" id="statActivos">0</div></div>
                     <div class="hstat"><div class="hstat-lbl">Bajas</div><div class="hstat-val" style="color:#fca5a5" id="statBajas">0</div></div>
-                    <div class="hstat"><div class="hstat-lbl">Pagados</div><div class="hstat-val" style="color:#86efac" id="statAlDia">0</div></div>
+                    <div class="hstat"><div class="hstat-lbl">Cancela carrera</div><div class="hstat-val" style="color:#86efac" id="statCancela">0</div></div>
+                    <div class="hstat"><div class="hstat-lbl">Pendiente</div><div class="hstat-val" style="color:#93c5fd" id="statPendiente">0</div></div>
                     <div class="hstat"><div class="hstat-lbl">En mora</div><div class="hstat-val" style="color:#fca5a5" id="statMora">0</div></div>
-                    <div class="hstat"><div class="hstat-lbl">Pago parcial</div><div class="hstat-val" style="color:#fde68a" id="statParcial">0</div></div>
+                    <div class="hstat"><div class="hstat-lbl">Al día</div><div class="hstat-val" style="color:#86efac" id="statAlDia">0</div></div>
+                    <div class="hstat"><div class="hstat-lbl">Readmisión</div><div class="hstat-val" style="color:#c4b5fd" id="statReadmision">0</div></div>
                     <div class="hstat hstat-sep"><div class="hstat-lbl">Ingresos</div><div class="hstat-val" id="statIngresos">—</div></div>
                     <div class="hstat"><div class="hstat-lbl">Egresos</div><div class="hstat-val" style="color:#fbbf24" id="statEgresos">—</div></div>
                     <div class="hstat"><div class="hstat-lbl">Saldo</div><div class="hstat-val" id="statSaldo">—</div></div>
@@ -1726,9 +1728,11 @@
                 document.getElementById('statEstudiantes').textContent = st.total;
                 document.getElementById('statActivos').textContent = st.activos;
                 document.getElementById('statBajas').textContent = st.bajas;
-                document.getElementById('statAlDia').textContent = st.pagados;
+                document.getElementById('statCancela').textContent = st.pagados;
+                document.getElementById('statPendiente').textContent = st.pendiente;
                 document.getElementById('statMora').textContent = st.en_mora;
-                document.getElementById('statParcial').textContent = st.pago_parcial;
+                document.getElementById('statAlDia').textContent = st.al_dia;
+                document.getElementById('statReadmision').textContent = st.readmision;
 
                 function fUsd(v) { return 'U$D ' + Number(v).toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2}); }
                 var ingresosTxt = formatearMoneda(st.ingresos_ars);
