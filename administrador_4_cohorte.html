@@ -526,9 +526,7 @@
             <div class="mfield">
                 <label for="c-tipo">Tipo</label>
                 <select id="c-tipo" aria-label="Tipo de notificación" onchange="cargarPlantilla()">
-                    <option value="recordatorio">📩 Recordatorio de vencimiento próximo</option>
-                    <option value="reclamo">🔔 Reclamo por cuota vencida</option>
-                    <option value="coordinador">👨‍🏫 Aviso al coordinador</option>
+                    <option value="recordatorio">🔔 Recordatorio pago de cuota</option>
                 </select>
             </div>
             <div class="mfield"><label for="c-asunto">Asunto</label><input type="text" id="c-asunto" aria-label="Asunto del correo"></div>
@@ -811,8 +809,8 @@ const PROGRAMA_ID = parseInt(QS.get('programa_id')) || null;
 ══════════════════════════════════════════════════ */
 let PLANTILLAS = {
     recordatorio: {
-        asunto: 'Recordatorio de vencimiento: {cuota} - {programa}',
-        cuerpo: 'Estimado/a {nombre} {apellido},\n\nLe recordamos que la {cuota} del período {periodo} del programa "{programa}" vence el {vencimiento}.\n\nMonto: ${monto}\nCBU: {cbu} | Alias: {alias}\n\nSecretaría de Posgrado - FCE UNCUYO'
+        asunto: 'Recordatorio pago de cuota - {programa}',
+        cuerpo: 'Estimado/a {nombre} {apellido},\n\nLe recordamos el pago de su/s cuota/s del programa "{programa}".'
     },
     reclamo: {
         asunto: 'Cuota vencida pendiente de pago: {cuota} - {programa}',
@@ -1965,6 +1963,7 @@ async function enviarNotificaciones() {
                 +     '<div style="font-weight:700;color:#5C1018;margin-bottom:4px;">Datos para la transferencia</div>'
                 +     '<div><strong>CBU:</strong> ' + escapeHtml(cbuVal) + '</div>'
                 +     '<div><strong>Alias:</strong> ' + escapeHtml(aliasVal) + '</div>'
+                +     '<div><strong>PayPal (pagos en USD):</strong> ' + escapeHtml((cfg && cfg.email_banco) || 'cooperadora@fce.uncu.edu.ar') + '</div>'
                 +   '</div>'
                 +   '<p style="font-size:14px;line-height:1.6;margin:16px 0 10px;">Una vez realizado el pago, ingresá al portal para subir el comprobante:</p>'
                 +   '<p style="margin:0 0 6px;"><a href="' + _portalUrl + '" style="display:inline-block;background:#5C1018;color:#fff;text-decoration:none;padding:11px 22px;border-radius:8px;font-weight:700;font-size:14px;">Ingresar al portal</a></p>'
