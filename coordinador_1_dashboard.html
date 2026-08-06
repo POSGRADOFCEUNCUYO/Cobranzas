@@ -189,10 +189,10 @@
             <div class="card">
                 <h2 class="card-title">Acciones rápidas</h2>
                 <div class="quick-actions">
-                    <button class="action-btn primary" type="button" onclick="abrirModalSolicitud()">
-                        <span class="action-icon">🎓</span>
-                        <span class="action-text">Solicitar Programa/Curso
-                            <span class="action-label">Proponer un nuevo programa o edición</span>
+                    <button class="action-btn primary" type="button" onclick="descargarPlantilla()">
+                        <span class="action-icon">📥</span>
+                        <span class="action-text">Descargar plantilla Excel
+                            <span class="action-label">Datos para crear un programa o edición</span>
                         </span>
                     </button>
                     <button class="action-btn secondary" type="button" onclick="irAGastos()">
@@ -212,36 +212,8 @@
         </div>
     </div>
 
-    <!-- Modal solicitud -->
-    <div id="modal-solicitud" class="modal-overlay" onclick="if(event.target===this) cerrarModalSolicitud()">
-        <div class="modal-box">
-            <div class="modal-top"><h2>🎓 Solicitar Programa/Curso</h2><button type="button" onclick="cerrarModalSolicitud()">×</button></div>
-            <p class="modal-desc">Esta solicitud se enviará al administrador del sistema junto con el archivo Excel del listado de estudiantes.</p>
-            <div class="field"><label>Programa/Curso <span style="color:var(--clr-danger);">*</span></label><input id="sol-programa" type="text" placeholder="Ej: Especialización en Costos y Gestión Empresarial"></div>
-            <div class="field"><label>Cohorte/Edición <span style="color:var(--clr-danger);">*</span></label><input id="sol-cohorte" type="text" placeholder="Ej: Cohorte 2026-2027 / 8ª Edición 2026"></div>
-            <div class="field"><label>Cantidad de cuotas <span style="color:var(--clr-danger);">*</span></label><input id="sol-cuotas" type="number" min="1" max="60" placeholder="Ej: 12"></div>
-            <div class="field"><label>Mes de la primera cuota/inscripción <span style="color:var(--clr-danger);">*</span></label><input id="sol-mes" type="text" placeholder="Ej: Marzo 2026 / 01/03/2026"></div>
-            <div class="field"><label>💬 Comentarios</label><textarea id="sol-comentarios" placeholder="Información adicional, observaciones o aclaraciones para el administrador..."></textarea></div>
-            <div class="field">
-                <label>📎 Listado de estudiantes (Excel) <span style="color:var(--clr-danger);">*</span></label>
-                <div id="sol-drop" class="drop-zone" onclick="document.getElementById('sol-archivo').click()" ondragover="onDragSolicitud(event)" ondragleave="offDragSolicitud(event)" ondrop="onDropSolicitud(event)">
-                    <div style="font-size:28px;margin-bottom:6px;">📊</div>
-                    <div style="font-size:13px;color:#666;">Arrastrá o <span style="color:#5C1018;font-weight:600;">hacé clic</span> para seleccionar el archivo</div>
-                    <div style="font-size:11px;color:#aaa;margin-top:4px;">Solo .xlsx o .xls</div>
-                </div>
-                <input id="sol-archivo" type="file" accept=".xlsx,.xls" style="display:none;" onchange="mostrarArchivo(this)">
-                <div id="sol-archivo-preview" class="file-preview"><span style="font-size:18px;">📄</span><span id="sol-archivo-nombre" style="font-size:13px;color:#065f46;font-weight:600;flex:1;"></span><button type="button" onclick="quitarArchivo()">×</button></div>
-                <div class="excel-structure"><strong style="display:block;margin-bottom:4px;color:#5C1018;">📋 Estructura requerida del Excel:</strong><span class="excel-chip">A: Apellido</span><span class="excel-chip">B: Nombre</span><span class="excel-chip">C: DNI</span><span class="excel-chip">D: Correo Electrónico</span></div>
-            </div>
-            <div id="sol-alert" class="alert-box error"></div>
-            <div id="sol-success" class="alert-box success">✅ Solicitud enviada correctamente al administrador del sistema.</div>
-            <div class="modal-actions">
-                <button type="button" class="btn-modal btn-cancel" onclick="cerrarModalSolicitud()">Cancelar</button>
-                <button type="button" class="btn-modal btn-send" onclick="enviarSolicitud()">📧 Enviar Solicitud</button>
-            </div>
-        </div>
-    </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
     <script src="supabase.js?v=20250529"></script>
     <script src="cohorte_tabla.js?v=20250603"></script>
@@ -452,101 +424,55 @@
     function irAReportes() { navegar('coordinador_4_reportes.html'); }
     function irADestino(destino) { if (destino) navegar(destino); }
 
-    function abrirModalSolicitud() {
-        document.getElementById('modal-solicitud').classList.add('open');
-        ['sol-alert','sol-success'].forEach(function(id) { document.getElementById(id).style.display='none'; });
-        ['sol-programa','sol-cohorte','sol-cuotas','sol-mes','sol-comentarios'].forEach(function(id) { document.getElementById(id).value=''; });
-        quitarArchivo();
-    }
-    function cerrarModalSolicitud() { document.getElementById('modal-solicitud').classList.remove('open'); }
-    function mostrarArchivo(input) {
-        var archivo = input.files && input.files[0]; if (!archivo) return;
-        document.getElementById('sol-archivo-nombre').textContent = archivo.name;
-        document.getElementById('sol-archivo-preview').classList.add('open');
-    }
-    function quitarArchivo() {
-        document.getElementById('sol-archivo').value = '';
-        document.getElementById('sol-archivo-preview').classList.remove('open');
-        document.getElementById('sol-archivo-nombre').textContent = '';
-    }
-    function onDragSolicitud(e) { e.preventDefault(); document.getElementById('sol-drop').classList.add('dragover'); }
-    function offDragSolicitud(e) { e.preventDefault(); document.getElementById('sol-drop').classList.remove('dragover'); }
-    function onDropSolicitud(e) {
-        e.preventDefault(); document.getElementById('sol-drop').classList.remove('dragover');
-        var archivo = e.dataTransfer.files && e.dataTransfer.files[0]; if (!archivo) return;
-        var input = document.getElementById('sol-archivo');
-        var transfer = new DataTransfer(); transfer.items.add(archivo); input.files = transfer.files;
-        mostrarArchivo(input);
-    }
-    async function enviarSolicitud() {
-        var programa = document.getElementById('sol-programa').value.trim();
-        var cohorte  = document.getElementById('sol-cohorte').value.trim();
-        var cuotas   = document.getElementById('sol-cuotas').value.trim();
-        var mes      = document.getElementById('sol-mes').value.trim();
-        var archivo  = document.getElementById('sol-archivo').files[0];
-        var alerta   = document.getElementById('sol-alert');
-        var success  = document.getElementById('sol-success');
-        if (!programa||!cohorte||!cuotas||!mes||!archivo) { alerta.textContent='⚠️ Completá todos los campos obligatorios e incluí el archivo Excel.'; alerta.style.display='block'; success.style.display='none'; return; }
-        var okExt = archivo.name.toLowerCase().endsWith('.xlsx') || archivo.name.toLowerCase().endsWith('.xls');
-        if (!okExt) { alerta.textContent='⚠️ El archivo debe ser Excel (.xlsx o .xls).'; alerta.style.display='block'; success.style.display='none'; return; }
-        alerta.style.display = 'none';
-        try {
-            var sb = await getSupabase();
-            var sesion = getSesion() || {};
-            var comentarios = document.getElementById('sol-comentarios').value.trim();
+    // Descarga una plantilla Excel (3 hojas) con los datos necesarios para crear
+    // un programa/curso, su cohorte/edición, las cuotas y el listado de estudiantes.
+    function descargarPlantilla() {
+        if (typeof XLSX === 'undefined') { alert('No se pudo cargar el generador de Excel. Recargá la página e intentá de nuevo.'); return; }
+        var wb = XLSX.utils.book_new();
 
-            // 1) Subir el Excel a storage para que el administrador pueda descargarlo.
-            var archivoUrl = '';
-            try {
-                var safeName = archivo.name.normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-zA-Z0-9._-]/g,'_');
-                var path = 'solicitudes/' + (sesion.dni||'sin_dni') + '/' + Date.now() + '_' + safeName;
-                var up = await sb.storage.from('comprobantes').upload(path, archivo);
-                if (!up.error) {
-                    var pub = sb.storage.from('comprobantes').getPublicUrl(path);
-                    archivoUrl = (pub.data && pub.data.publicUrl) || '';
-                }
-            } catch(_) { /* la subida es best-effort: la solicitud se registra igual */ }
+        // Hoja 1 — Programa / Cohorte
+        var programa = [
+            ['Campo', 'Valor', 'Ayuda / Ejemplo'],
+            ['Tipo', '', 'Maestría / Especialización / Doctorado / Diplomatura / Micro-maestría / Curso / Diplomado'],
+            ['Programa o Curso (nombre)', '', 'Ej: Especialización en Costos y Gestión Empresarial'],
+            ['¿Cohorte o Edición?', '', 'Escribir "Cohorte" o "Edición"'],
+            ['Nombre de la cohorte/edición', '', 'Ej: Cohorte 2026-2027  /  8ª Edición 2026'],
+            ['Moneda', '', 'ARS o USD'],
+            ['Fecha de inicio', '', 'DD/MM/AAAA'],
+            ['Fecha de fin', '', 'DD/MM/AAAA'],
+            ['Cantidad de cuotas', '', 'Ej: 12'],
+            ['Mes/Año de la cuota 1', '', 'Ej: Marzo 2026  (el vencimiento es el día 15)'],
+            ['¿Tiene inscripción? (Sí/No)', '', 'Sí o No'],
+            ['Monto de la inscripción', '', 'Solo si tiene inscripción. Ej: 50000'],
+            ['Vencimiento de la inscripción', '', 'Solo si tiene inscripción. DD/MM/AAAA'],
+            ['Valor de cuota (si son todas iguales)', '', 'Si TODAS las cuotas valen lo mismo, poné el monto acá. Si varían, dejá esto vacío y completá la hoja "Cuotas".']
+        ];
+        var wsP = XLSX.utils.aoa_to_sheet(programa);
+        wsP['!cols'] = [{ wch: 36 }, { wch: 26 }, { wch: 62 }];
+        XLSX.utils.book_append_sheet(wb, wsP, 'Programa');
 
-            // 2) Mensaje de la solicitud.
-            var quien = (sesion.nombre || sesion.dni || 'Un coordinador');
-            var mensaje = 'Solicitud de programa/curso de ' + quien + '. ' +
-                'Programa: ' + programa + ' · Cohorte/Edición: ' + cohorte + ' · ' +
-                'Cuotas: ' + cuotas + ' · 1ra cuota: ' + mes +
-                (comentarios ? ' · Comentarios: ' + comentarios : '') +
-                (archivoUrl ? ' · Plan adjunto: ' + archivoUrl : ' · (no se pudo adjuntar el Excel)');
+        // Hoja 2 — Cuotas (completar SOLO si los montos varían de una cuota a otra)
+        var cuotas = [
+            ['Nº de cuota', 'Período (Mes/Año)', 'Monto'],
+            [1, 'Marzo 2026', ''],
+            [2, 'Abril 2026', ''],
+            [3, 'Mayo 2026', '']
+        ];
+        var wsC = XLSX.utils.aoa_to_sheet(cuotas);
+        wsC['!cols'] = [{ wch: 12 }, { wch: 22 }, { wch: 16 }];
+        XLSX.utils.book_append_sheet(wb, wsC, 'Cuotas');
 
-            // 3) Persistir notificación interna para TODOS los administradores.
-            var rNotif = await sb.from('notificaciones').insert({
-                usuario_dni: null,
-                rol_destino: 'ADMINISTRADOR',
-                tipo: 'solicitud',
-                mensaje: mensaje.substring(0, 500)
-            });
-            if (rNotif.error) throw rNotif.error;
+        // Hoja 3 — Estudiantes
+        var estudiantes = [
+            ['Apellido', 'Nombre', 'DNI', 'Email', 'Descuento (%)'],
+            ['Pérez', 'Juan', '30111222', 'juan.perez@example.com', 0],
+            ['', '', '', '', '']
+        ];
+        var wsE = XLSX.utils.aoa_to_sheet(estudiantes);
+        wsE['!cols'] = [{ wch: 22 }, { wch: 22 }, { wch: 14 }, { wch: 32 }, { wch: 14 }];
+        XLSX.utils.book_append_sheet(wb, wsE, 'Estudiantes');
 
-            // 4) Email a los administradores activos (best-effort, vía Edge Function → GAS).
-            try {
-                var rAdmins = await sb.from('usuarios').select('email').eq('rol','ADMINISTRADOR').eq('activo', true);
-                var admins = (rAdmins.data || []).map(function(u){ return u.email; }).filter(Boolean);
-                for (var i=0;i<admins.length;i++) {
-                    await sb.functions.invoke('enviar-email', { body: {
-                        programaId: null,
-                        to: admins[i],
-                        subject: 'Nueva solicitud de programa/curso — ' + programa,
-                        body: mensaje,
-                        replyTo: sesion.email || ''
-                    }});
-                }
-            } catch(_) { /* el email es best-effort: la solicitud ya quedó registrada */ }
-
-            success.style.display = 'block';
-            setTimeout(cerrarModalSolicitud, 2200);
-        } catch(e) {
-            alerta.textContent = '⚠️ No se pudo registrar la solicitud. Intentá nuevamente.';
-            alerta.style.display = 'block';
-            success.style.display = 'none';
-            console.error('enviarSolicitud:', e);
-        }
+        XLSX.writeFile(wb, 'plantilla_programa_cohorte.xlsx');
     }
 
     function cargarNotificaciones() {
