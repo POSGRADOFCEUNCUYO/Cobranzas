@@ -611,26 +611,12 @@ function calcularYRenderizar(cobros, inscripciones, desde, hasta, progId, cohId,
     var cohProgMap = {};
     _cohortes.forEach(function(c){ cohProgMap[c.cohorte_id] = c.programa_id; });
 
-    // Helpers de rango de fecha
-    function enRangoVenc(f) {
-        if (!f) return true;
-        var d = String(f).substring(0, 10);
-        if (!desdeChk && desde && d < desde) return false;
-        if (hasta && d > hasta) return false;
-        return true;
-    }
-    function enRangoPago(f) {
-        if (!f) return false;
-        var d = String(f).substring(0, 10);
-        if (!desdeChk && desde && d < desde) return false;
-        if (hasta && d > hasta) return false;
-        return true;
-    }
-
-    // ── COBROS: sumas con filtro de fecha separado por semántica ──
-    // ingresoProy → fecha_vencimiento (cuándo estaba programado el cobro)
-    // ingresoEjec → fecha_pago (cuándo ingresó el dinero efectivamente)
-    // PAGO_PARCIAL: parte ejecutada por fecha_pago, parte proyectada por fecha_vencimiento
+    // ── COBROS: métricas de liquidez como SNAPSHOT instantáneo (igual que secretaria) ──
+    // No se filtran por fecha: son la foto del estado actual de la cartera, no de un período.
+    // Solo se respeta el filtro de programa/cohorte (aplicado en la query).
+    // ingresoProy → todo lo programado (monto_final)
+    // ingresoEjec → todo lo efectivamente recibido
+    // montoMora   → todo el saldo en mora
     var ingresoProy   = 0;  // ARS
     var ingresoProyUsd= 0;  // USD
     var ingresoEjec   = 0;  // ARS
@@ -647,19 +633,17 @@ function calcularYRenderizar(cobros, inscripciones, desde, hasta, progId, cohId,
         var esUsd = c.moneda === 'USD';
         if (est === 'NO_APLICA' || est === 'A_DEFINIR') return;
 
-        // Proyectado: cuota programada para este período (por fecha de vencimiento)
-        if (enRangoVenc(c.fecha_vencimiento)) {
-            if (esUsd) ingresoProyUsd += mf; else ingresoProy += mf;
-        }
+        // Proyectado: snapshot de todo lo programado (igual que secretaria, sin filtro de fecha)
+        if (esUsd) ingresoProyUsd += mf; else ingresoProy += mf;
 
-        // Ejecutado: dinero recibido en este período (por fecha real de transferencia)
-        if ((est === 'ABONADA' || est === 'PAGO_PARCIAL') && enRangoPago(c.fecha_pago)) {
+        // Ejecutado: dinero efectivamente recibido (snapshot, sin filtro de fecha)
+        if (est === 'ABONADA' || est === 'PAGO_PARCIAL') {
             var _ma = (c.monto_abonado && Number(c.monto_abonado) > 0) ? Number(c.monto_abonado) : Math.max(0, mf - sp);
             if (esUsd) ingresoEjecUsd += _ma; else ingresoEjec += _ma;
         }
 
-        // Mora: por fecha de vencimiento
-        if (est === 'EN_MORA' && enRangoVenc(c.fecha_vencimiento)) {
+        // Mora: saldo en mora (snapshot, sin filtro de fecha)
+        if (est === 'EN_MORA') {
             if (esUsd) montoMoraUsd += sp; else montoMora += sp;
             cuotasEnMora++;
             var pid = c.programa_id != null ? c.programa_id : cohProgMap[c.cohorte_id];
