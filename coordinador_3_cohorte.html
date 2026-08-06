@@ -846,6 +846,21 @@ async function reclamarSel() {
             if (!est || !est.email) return;
             var cobrosVenc = (est.cobros || []).filter(function(c){ return c._re === 'EN_MORA' || c._re === 'PAGO_PARCIAL'; });
             if (!cobrosVenc.length) cobrosVenc = (est.cobros || []).filter(function(c){ return c._re !== 'ABONADA' && c._re !== 'A_DEFINIR' && c._re !== 'NO_APLICA'; });
+            // Recordatorio de vencimiento: incluir también la/s cuota/s que vencen en el mes corriente.
+            if (tipo === 'recordatorio') {
+                var _hoyR = new Date(), _mR = _hoyR.getMonth(), _aR = _hoyR.getFullYear();
+                var _keysR = {};
+                cobrosVenc.forEach(function(c){ _keysR[(c.concepto||'') + '||' + (c.periodo||'')] = true; });
+                (est.cobros || []).forEach(function(c){
+                    if (c._re === 'ABONADA' || c._re === 'A_DEFINIR' || c._re === 'NO_APLICA') return;
+                    if (!c.fecha_vencimiento) return;
+                    var _d = new Date(String(c.fecha_vencimiento).split('T')[0] + 'T12:00:00');
+                    if (_d.getMonth() !== _mR || _d.getFullYear() !== _aR) return;
+                    var _k = (c.concepto||'') + '||' + (c.periodo||'');
+                    if (!_keysR[_k]) { _keysR[_k] = true; cobrosVenc.push(c); }
+                });
+                cobrosVenc.sort(function(a,b){ return String(a.fecha_vencimiento||'').localeCompare(String(b.fecha_vencimiento||'')); });
+            }
             var primer = cobrosVenc[0] || {};
             var nVenc   = cobrosVenc.length;
             var totalSaldo = cobrosVenc.reduce(function(s,c){ return s + Number(c.saldo_pendiente||0); }, 0);
