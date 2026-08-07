@@ -399,7 +399,7 @@ function renderProgramas(lista) {
         grupos[tipo].forEach(function(p) {
             var coordStr = p.coordinadores&&p.coordinadores.length ? '👤 '+esc(p.coordinadores.join(', ')) : '👤 Sin coordinador';
             html += '<div class="prog-card">'
-                +'<div class="prog-name">'+iconoTipo(p.tipo)+' '+esc(p.nombre)+'</div>'
+                +'<div class="prog-name">'+iconoTipo(p.tipo)+' '+esc(p.nombre)+'<span style="font-size:12px;font-weight:600;color:#64748b;background:#eef2f7;padding:2px 8px;border-radius:10px;margin-left:8px;">ID '+p.programa_id+'</span></div>'
                 +'<div class="prog-meta">'
                 +'<span>📖 '+p.cohortes_activas+' cohorte'+(p.cohortes_activas!==1?'s':'')+' activa'+(p.cohortes_activas!==1?'s':'')+' · '+p.total_cohortes+' total</span>'
                 +'<span>👥 '+p.est_activos+' estudiante'+(p.est_activos!==1?'s':'')+' activo'+(p.est_activos!==1?'s':'')+' </span>'
