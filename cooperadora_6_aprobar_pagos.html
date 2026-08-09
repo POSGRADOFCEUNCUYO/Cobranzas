@@ -388,7 +388,7 @@
             _compMap = {};
             var _ids = _cobros.map(function(c){ return c.cobro_id; }).filter(Boolean);
             if (_ids.length) {
-                var rc = await sb.from('comprobantes').select('cobro_id,url,fecha').in('cobro_id', _ids).order('fecha', { ascending: true });
+                var rc = await sb.from('comprobantes').select('cobro_id,url,fecha,monto_declarado').in('cobro_id', _ids).order('fecha', { ascending: true });
                 (rc.data || []).forEach(function(cp){ (_compMap[cp.cobro_id] = _compMap[cp.cobro_id] || []).push(cp); });
             }
 
@@ -549,10 +549,16 @@
             comprobanteHtml = '<div style="padding:12px 0;color:#aaa;font-size:13px;">Sin comprobante adjunto</div>';
         }
 
-        /* Monto declarado por el estudiante */
+        /* Monto declarado por el estudiante = SUMA de todos los comprobantes pendientes (menos lo ya abonado) */
         var montoDeclaradoHtml = '';
-        if (c.monto_transferido && Number(c.monto_transferido) > 0) {
-            var mt = Number(c.monto_transferido);
+        var _compsC = _compMap[c.cobro_id] || [];
+        var _sumDecl = _compsC.reduce(function(s,cp){ return s + (Number(cp.monto_declarado)||0); }, 0);
+        var _abonadoYa = (c.monto_abonado != null && Number(c.monto_abonado) > 0)
+            ? Number(c.monto_abonado)
+            : Math.max(0, (Number(c.monto_final)||0) - (Number(c.saldo_pendiente)||0));
+        var mt = _sumDecl > 0 ? Math.max(0, _sumDecl - _abonadoYa) : Number(c.monto_transferido || 0);
+        var _nComps = _compsC.length;
+        if (mt > 0) {
             var esParcialDeclarado = mt < Number(c.monto_final);
             var colorBg = esParcialDeclarado ? '#fff7ed' : '#f0fdf4';
             var colorBorder = esParcialDeclarado ? '#fb923c' : '#86efac';
@@ -563,6 +569,7 @@
                 : 'Pago TOTAL declarado: <strong>' + fMillones(mt) + '</strong>';
             montoDeclaradoHtml = '<div style="margin-bottom:12px;padding:10px 14px;background:'+colorBg+';border-radius:8px;border:1px solid '+colorBorder+';font-size:13px;color:'+colorText+';">'
                 + iconoD + ' ' + labelD
+                + (_nComps > 1 ? '<br><span style="font-size:12px;opacity:.8;">(suma de ' + _nComps + ' comprobantes)</span>' : '')
                 + (esParcialDeclarado ? '<br><span style="font-size:12px;opacity:.8;">Saldo restante a cobrar: <strong>' + fMillones(Math.max(0, Number(c.monto_final) - mt)) + '</strong></span>' : '')
                 + '</div>';
         }

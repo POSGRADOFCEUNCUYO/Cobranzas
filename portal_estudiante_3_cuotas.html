@@ -532,7 +532,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         // 3b. Traer todos los comprobantes de estas cuotas (varios por cuota)
         var _cids = COBROS.map(function(c){ return c.cobro_id; }).filter(Boolean);
         if (_cids.length) {
-            var { data: _comps } = await sb.from('comprobantes').select('cobro_id,url,fecha').in('cobro_id', _cids).order('fecha', { ascending: true });
+            var { data: _comps } = await sb.from('comprobantes').select('cobro_id,url,fecha,monto_declarado').in('cobro_id', _cids).order('fecha', { ascending: true });
             var _cmap = {};
             (_comps || []).forEach(function(cp){ (_cmap[cp.cobro_id] = _cmap[cp.cobro_id] || []).push(cp); });
             COBROS.forEach(function(c){ c.comprobantes = _cmap[c.cobro_id] || []; });
@@ -716,9 +716,11 @@ function buildCard(c) {
         footerLeft = 'Pago parcial registrado · Saldo restante: ' + fmt(c.saldo);
 
     } else if (c.estado === 'PENDIENTE') {
-        var esParcialDec = c.montoTransferido && c.montoTransferido > 0 && c.monto && c.montoTransferido < c.monto;
+        var declSum = (c.comprobantes||[]).reduce(function(s,cp){ return s + (Number(cp.monto_declarado)||0); }, 0);
+        var declMostrar = declSum > 0 ? Math.max(0, declSum - (Number(c.pagado)||0)) : (Number(c.montoTransferido)||0);
+        var esParcialDec = declMostrar > 0 && c.monto && declMostrar < c.monto;
         var msgInfBox = esParcialDec
-            ? '🕐 <strong>Pago parcial declarado: ' + fmt(c.montoTransferido) + '</strong> de ' + fmt(c.monto) + ' — Esperando revisión de Cooperadora'
+            ? '🕐 <strong>Pago parcial declarado: ' + fmt(declMostrar) + '</strong> de ' + fmt(c.monto) + ' — Esperando revisión de Cooperadora'
             : '🕐 <strong>Comprobante enviado</strong> — Esperando revisión de Cooperadora';
         infoExtra = '<div style="background:#fef3c7;border-left:4px solid var(--clr-warning);padding:12px 16px;border-radius:8px;margin-bottom:12px;font-size:13px;color:#92400e;">' + msgInfBox + '</div>';
         gridHtml = ''
@@ -726,7 +728,7 @@ function buildCard(c) {
             + '<div><div class="detail-label">Período</div><div class="detail-value">' + esc(c.periodo) + '</div></div>'
             + '<div><div class="detail-label">Vencimiento</div><div class="detail-value">' + c.venc + '</div></div>'
             + (esParcialDec
-                ? '<div><div class="detail-label">Monto declarado</div><div class="detail-value highlight-info">' + fmt(c.montoTransferido) + '</div></div>'
+                ? '<div><div class="detail-label">Monto declarado</div><div class="detail-value highlight-info">' + fmt(declMostrar) + '</div></div>'
                   + '<div><div class="detail-label">Total cuota</div><div class="detail-value">' + fmt(c.monto) + '</div></div>'
                 : '<div><div class="detail-label">Monto a pagar</div><div class="detail-value">' + fmt(c.monto) + '</div></div>')
             + (c.desc > 0 ? '<div><div class="detail-label">Precio original</div><div class="detail-value" style="text-decoration:line-through;color:#bbb;">' + fmt(c.original) + '</div></div><div><div class="detail-label">Descuento</div><div class="detail-value highlight-success">-' + c.desc + '%</div></div>' : '');

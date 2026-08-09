@@ -407,7 +407,7 @@ async function onComprobanteFile(inp) {
     try {
         var sb = await getSupabase();
         // Estado y datos actuales, para no pisar pagos ya aprobados ni datos existentes.
-        var rc = await sb.from('cobros').select('estado,fecha_pago,monto_transferido,monto_final').eq('cobro_id', cobroId).single();
+        var rc = await sb.from('cobros').select('estado,fecha_pago,monto_transferido,monto_final,saldo_pendiente').eq('cobro_id', cobroId).single();
         if (rc.error) throw new Error(rc.error.message);
         var cur = rc.data;
 
@@ -429,7 +429,9 @@ async function onComprobanteFile(inp) {
         if (w.error) throw new Error(w.error.message);
 
         // Historial: se suma este comprobante (no reemplaza a los anteriores)
-        var wc = await sb.from('comprobantes').insert({ cobro_id: cobroId, url: url, fecha: ahora, subido_por: DNI });
+        var _mdecl = (cur.saldo_pendiente != null && Number(cur.saldo_pendiente) > 0) ? Number(cur.saldo_pendiente)
+                   : (cur.monto_final != null ? Number(cur.monto_final) : null);
+        var wc = await sb.from('comprobantes').insert({ cobro_id: cobroId, url: url, fecha: ahora, monto_declarado: _mdecl, subido_por: DNI });
         if (wc.error) throw new Error(wc.error.message);
 
         toast('✅ Comprobante agregado. Queda pendiente de aprobación por cooperadora.', 'ok');
