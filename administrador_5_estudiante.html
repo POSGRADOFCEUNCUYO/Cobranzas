@@ -210,6 +210,7 @@ var COHORTE_ID = parseInt(QS.get('cohorte_id')) || null;
 var PROGRAMA_ID= QS.get('programa_id') || null;
 var _est            = null;
 var _recibosTangoMap = {};
+var _compMap        = {};
 function spin(v){ document.getElementById('spinner').classList.toggle('show',v); }
 // toast: usa la versión global de supabase.js
 
@@ -243,6 +244,13 @@ async function cargar() {
     var coh = rCoh.data;
     var _cIds = cobros.map(function(c){ return c.cobro_id; }).filter(Boolean);
     _recibosTangoMap = await obtenerRecibosTango(_cIds);
+
+    // Comprobantes (varios por cuota) — historial completo
+    _compMap = {};
+    if (_cIds.length) {
+        var rComp = await sb.from('comprobantes').select('comprobante_id,cobro_id,url,fecha').in('cobro_id', _cIds).order('fecha', { ascending: true });
+        (rComp.data || []).forEach(function(cp){ (_compMap[cp.cobro_id] = _compMap[cp.cobro_id] || []).push(cp); });
+    }
 
     // Header
     var nombre = (_est.apellido||'') + ', ' + (_est.nombre||'');
@@ -342,11 +350,14 @@ function renderCobros(cobros) {
         if ((pesoEstado[estado]||0) > (pesoEstado[peor]||0)) peor = estado;
 
         var docs = '';
-        if (c.comprobante_url) docs += '<button class="btn-action btn-comp" onclick="verDoc(\''+esc(c.comprobante_url)+'\')">📎 Comp.</button> ';
+        var _comps = _compMap[c.cobro_id] || [];
+        _comps.forEach(function(cp, i){
+            var lbl = _comps.length > 1 ? '📎 Comp. '+(i+1) : '📎 Comp.';
+            docs += '<button class="btn-action btn-comp" onclick="verDoc(\''+esc(cp.url)+'\')">'+lbl+'</button> ';
+        });
         (_recibosTangoMap[c.cobro_id]||[]).forEach(function(r,i){ var lbl=(_recibosTangoMap[c.cobro_id]||[]).length>1?'🧾 Recibo '+(i+1):'🧾 Recibo'; docs+='<button class="btn-action btn-recibo" onclick="verDoc(\''+esc(r.pdf_url)+'\')">'+lbl+'</button>'; });
         if (estado !== 'NO_APLICA' && estado !== 'A_DEFINIR') {
-            var lblSub = c.comprobante_url ? '🔄 Reemplazar' : '⬆️ Subir comp.';
-            docs += '<button class="btn-action btn-subir" onclick="pickComprobante(\''+c.cobro_id+'\')">'+lblSub+'</button> ';
+            docs += '<button class="btn-action btn-subir" onclick="pickComprobante(\''+c.cobro_id+'\')">➕ Agregar comp.</button> ';
         }
 
         var vence = c.fecha_vencimiento ? c.fecha_vencimiento.split('-').reverse().join('/') : '—';
@@ -417,7 +428,11 @@ async function onComprobanteFile(inp) {
         var w = await sb.from('cobros').update(upd).eq('cobro_id', cobroId);
         if (w.error) throw new Error(w.error.message);
 
-        toast('✅ Comprobante subido. Queda pendiente de aprobación por cooperadora.', 'ok');
+        // Historial: se suma este comprobante (no reemplaza a los anteriores)
+        var wc = await sb.from('comprobantes').insert({ cobro_id: cobroId, url: url, fecha: ahora, subido_por: DNI });
+        if (wc.error) throw new Error(wc.error.message);
+
+        toast('✅ Comprobante agregado. Queda pendiente de aprobación por cooperadora.', 'ok');
         await cargar();
     } catch(e) {
         console.error('Error al subir comprobante:', e);

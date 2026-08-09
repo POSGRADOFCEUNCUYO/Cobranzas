@@ -348,6 +348,7 @@
 <script src="cohorte_tabla.js?v=20250603"></script>
 <script>
     var _cobros = [];
+    var _compMap = {};
     var _cobroActivo = null;
 
     /* ── INIT ── */
@@ -382,6 +383,15 @@
             if (_programaId) q = q.eq('programa_id', _programaId);
             var r = await q.order('comprobante_fecha', { ascending: false });
             _cobros = r.data || [];
+
+            // Todos los comprobantes de esas cuotas (varios por cuota) — cooperadora los ve todos (solo lectura)
+            _compMap = {};
+            var _ids = _cobros.map(function(c){ return c.cobro_id; }).filter(Boolean);
+            if (_ids.length) {
+                var rc = await sb.from('comprobantes').select('cobro_id,url,fecha').in('cobro_id', _ids).order('fecha', { ascending: true });
+                (rc.data || []).forEach(function(cp){ (_compMap[cp.cobro_id] = _compMap[cp.cobro_id] || []).push(cp); });
+            }
+
             renderResumen();
             renderLista();
         } catch(e) {
@@ -513,20 +523,28 @@
         /* Cuotas area → comprobante y acciones */
         var cuotasDiv = document.getElementById('modal-cuotas');
         var comprobanteHtml = '';
-        if (c.comprobante_url) {
-            var esImagen = /\.(jpg|jpeg|png|gif|webp)$/i.test(c.comprobante_url);
-            if (esImagen) {
-                comprobanteHtml = '<div style="margin-bottom:16px;"><img src="'+esc(c.comprobante_url)+'" style="max-width:100%;border-radius:8px;border:1px solid #e0e0e0;" alt="Comprobante"></div>';
-            } else {
-                comprobanteHtml = '<div class="cuota-comprobante">'
-                    +'<div class="comp-icon">📄</div>'
-                    +'<div class="comp-info">'
-                      +'<div class="comp-nombre">Comprobante adjunto</div>'
-                      +'<div class="comp-meta">Vencimiento: '+fFecha(c.fecha_vencimiento)+'</div>'
-                    +'</div>'
-                    +'<a href="'+esc(c.comprobante_url)+'" target="_blank" class="btn btn-ver" style="text-decoration:none;">👁️ Ver</a>'
-                    +'</div>';
-            }
+        var _comps = (_compMap[c.cobro_id] && _compMap[c.cobro_id].length)
+            ? _compMap[c.cobro_id]
+            : (c.comprobante_url ? [{ url: c.comprobante_url }] : []);
+        if (_comps.length) {
+            comprobanteHtml = '<div style="margin-bottom:16px;">';
+            if (_comps.length > 1) comprobanteHtml += '<div style="font-size:13px;font-weight:700;color:#334155;margin-bottom:8px;">📎 '+_comps.length+' comprobantes de pago</div>';
+            _comps.forEach(function(cp, i){
+                var titulo = _comps.length > 1 ? 'Comprobante ' + (i+1) : 'Comprobante adjunto';
+                var esImagen = /\.(jpg|jpeg|png|gif|webp)$/i.test(cp.url);
+                if (esImagen) {
+                    comprobanteHtml += '<div style="margin-bottom:10px;"><div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:4px;">'+titulo+'</div>'
+                        +'<img src="'+esc(cp.url)+'" style="max-width:100%;border-radius:8px;border:1px solid #e0e0e0;" alt="'+titulo+'"></div>';
+                } else {
+                    comprobanteHtml += '<div class="cuota-comprobante" style="margin-bottom:8px;">'
+                        +'<div class="comp-icon">📄</div>'
+                        +'<div class="comp-info"><div class="comp-nombre">'+titulo+'</div>'
+                          +'<div class="comp-meta">Vencimiento: '+fFecha(c.fecha_vencimiento)+'</div></div>'
+                        +'<a href="'+esc(cp.url)+'" target="_blank" class="btn btn-ver" style="text-decoration:none;">👁️ Ver</a>'
+                        +'</div>';
+                }
+            });
+            comprobanteHtml += '</div>';
         } else {
             comprobanteHtml = '<div style="padding:12px 0;color:#aaa;font-size:13px;">Sin comprobante adjunto</div>';
         }

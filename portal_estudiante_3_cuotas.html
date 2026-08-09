@@ -529,6 +529,15 @@ document.addEventListener('DOMContentLoaded', async function() {
                 };
             });
 
+        // 3b. Traer todos los comprobantes de estas cuotas (varios por cuota)
+        var _cids = COBROS.map(function(c){ return c.cobro_id; }).filter(Boolean);
+        if (_cids.length) {
+            var { data: _comps } = await sb.from('comprobantes').select('cobro_id,url,fecha').in('cobro_id', _cids).order('fecha', { ascending: true });
+            var _cmap = {};
+            (_comps || []).forEach(function(cp){ (_cmap[cp.cobro_id] = _cmap[cp.cobro_id] || []).push(cp); });
+            COBROS.forEach(function(c){ c.comprobantes = _cmap[c.cobro_id] || []; });
+        }
+
         // 4. Poblar selects y renderizar
         poblarSelects();
 
@@ -721,9 +730,7 @@ function buildCard(c) {
                   + '<div><div class="detail-label">Total cuota</div><div class="detail-value">' + fmt(c.monto) + '</div></div>'
                 : '<div><div class="detail-label">Monto a pagar</div><div class="detail-value">' + fmt(c.monto) + '</div></div>')
             + (c.desc > 0 ? '<div><div class="detail-label">Precio original</div><div class="detail-value" style="text-decoration:line-through;color:#bbb;">' + fmt(c.original) + '</div></div><div><div class="detail-label">Descuento</div><div class="detail-value highlight-success">-' + c.desc + '%</div></div>' : '');
-        var btnPend = '';
-        if (c.comprobante_url) btnPend = '<button class="btn btn-warning btn-sm" onclick="verDocumento(\'' + escJs(c.comprobante_url) + '\',\'Comprobante enviado\',\'' + escJs(c.concepto) + '\')">👁️ Ver comprobante</button>';
-        footerBtn  = btnPend;
+        footerBtn = '<button class="btn btn-outline btn-sm" onclick="abrirModal(' + c.cobro_id + ')">➕ Agregar comprobante</button>';
         footerLeft = esParcialDec ? 'Pago parcial declarado · Esperando verificación de Cooperadora' : 'Pendiente de verificación por Cooperadora';
 
     } else if (c.estado === 'NO_ABONADA') {
@@ -746,6 +753,16 @@ function buildCard(c) {
         footerLeft = 'Pendiente de confirmación por la administración';
     }
 
+    var compsHtml = '';
+    if (c.comprobantes && c.comprobantes.length) {
+        compsHtml = '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">'
+            + c.comprobantes.map(function(cp, i){
+                var n = c.comprobantes.length > 1 ? ' ' + (i + 1) : '';
+                return '<button class="btn btn-outline btn-sm" onclick="verDocumento(\'' + escJs(cp.url) + '\',\'Comprobante' + n + '\',\'' + escJs(c.concepto) + '\')">📎 Comprobante' + n + '</button>';
+              }).join('')
+            + '</div>';
+    }
+
     return '<div class="cuota-card estado-' + c.estado + '">'
         + '<div class="cuota-header">'
         + '<div class="cuota-title">' + esc(c.concepto) + '<small>' + esc(programaStr) + '</small></div>'
@@ -753,6 +770,7 @@ function buildCard(c) {
         + '</div>'
         + infoExtra
         + '<div class="cuota-grid">' + gridHtml + '</div>'
+        + compsHtml
         + '<div class="cuota-footer">'
         + '<div class="cuota-footer-left">' + footerLeft + '</div>'
         + '<div>' + footerBtn + '</div>'
@@ -880,6 +898,9 @@ async function enviarComprobante() {
 
         // ── Paso 2: crear notificación interna para Cooperadora ──
         var sb = await getSupabase();
+
+        // Historial: se suma este comprobante (no reemplaza a los anteriores)
+        await sb.from('comprobantes').insert({ cobro_id: cobroId, url: resultado.url, fecha: new Date().toISOString(), monto_declarado: (+monto || null), subido_por: dni });
         var mensaje = 'Nuevo comprobante de ' + (SESION.nombre || 'Estudiante')
                          + ' (DNI ' + dni + ') para "'
                          + _cobroActual.concepto + ' - ' + _cobroActual.periodo
