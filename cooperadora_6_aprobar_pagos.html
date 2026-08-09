@@ -530,7 +530,8 @@
             comprobanteHtml = '<div style="margin-bottom:16px;">';
             if (_comps.length > 1) comprobanteHtml += '<div style="font-size:13px;font-weight:700;color:#334155;margin-bottom:8px;">📎 '+_comps.length+' comprobantes de pago</div>';
             _comps.forEach(function(cp, i){
-                var titulo = _comps.length > 1 ? 'Comprobante ' + (i+1) : 'Comprobante adjunto';
+                var titulo = (_comps.length > 1 ? 'Comprobante ' + (i+1) : 'Comprobante adjunto')
+                    + (cp.monto_declarado != null && Number(cp.monto_declarado) > 0 ? ' — declara ' + fMillones(Number(cp.monto_declarado)) : '');
                 var esImagen = /\.(jpg|jpeg|png|gif|webp)$/i.test(cp.url);
                 if (esImagen) {
                     comprobanteHtml += '<div style="margin-bottom:10px;"><div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:4px;">'+titulo+'</div>'
@@ -552,25 +553,28 @@
         /* Monto declarado por el estudiante = SUMA de todos los comprobantes pendientes (menos lo ya abonado) */
         var montoDeclaradoHtml = '';
         var _compsC = _compMap[c.cobro_id] || [];
-        var _sumDecl = _compsC.reduce(function(s,cp){ return s + (Number(cp.monto_declarado)||0); }, 0);
-        var _abonadoYa = (c.monto_abonado != null && Number(c.monto_abonado) > 0)
-            ? Number(c.monto_abonado)
-            : Math.max(0, (Number(c.monto_final)||0) - (Number(c.saldo_pendiente)||0));
-        var mt = _sumDecl > 0 ? Math.max(0, _sumDecl - _abonadoYa) : Number(c.monto_transferido || 0);
         var _nComps = _compsC.length;
+        var _mfinal6 = Number(c.monto_final) || 0;
+        var _abon6 = (c.monto_abonado != null && Number(c.monto_abonado) > 0)
+            ? Number(c.monto_abonado)
+            : Math.max(0, _mfinal6 - (Number(c.saldo_pendiente)||0));
+        var mt = Math.max(0, Number(c.monto_transferido || 0));   // declarado a revisar (esta cola ya es PENDIENTE)
+        var _totalIncl6 = _abon6 + mt;
+        var _saldo6 = Math.max(0, _mfinal6 - _totalIncl6);
         if (mt > 0) {
-            var esParcialDeclarado = mt < Number(c.monto_final);
+            var esParcialDeclarado = _totalIncl6 < _mfinal6;
             var colorBg = esParcialDeclarado ? '#fff7ed' : '#f0fdf4';
             var colorBorder = esParcialDeclarado ? '#fb923c' : '#86efac';
             var colorText = esParcialDeclarado ? '#9a3412' : '#166534';
             var iconoD = esParcialDeclarado ? '⚠️' : '✅';
-            var labelD = esParcialDeclarado
-                ? 'Pago PARCIAL declarado: <strong>' + fMillones(mt) + '</strong> de ' + fMillones(Number(c.monto_final))
-                : 'Pago TOTAL declarado: <strong>' + fMillones(mt) + '</strong>';
             montoDeclaradoHtml = '<div style="margin-bottom:12px;padding:10px 14px;background:'+colorBg+';border-radius:8px;border:1px solid '+colorBorder+';font-size:13px;color:'+colorText+';">'
-                + iconoD + ' ' + labelD
-                + (_nComps > 1 ? '<br><span style="font-size:12px;opacity:.8;">(suma de ' + _nComps + ' comprobantes)</span>' : '')
-                + (esParcialDeclarado ? '<br><span style="font-size:12px;opacity:.8;">Saldo restante a cobrar: <strong>' + fMillones(Math.max(0, Number(c.monto_final) - mt)) + '</strong></span>' : '')
+                + iconoD + ' <strong>Declarado a revisar: ' + fMillones(mt) + '</strong>' + (_nComps > 1 ? ' <span style="opacity:.8;">(en ' + _nComps + ' comprobantes)</span>' : '')
+                + '<div style="margin-top:6px;font-size:12.5px;line-height:1.7;">'
+                +   'Monto total: <strong>' + fMillones(_mfinal6) + '</strong><br>'
+                +   'Abonado (aprobado): <strong>' + fMillones(_abon6) + '</strong><br>'
+                +   'Total abonado (incl. declarado): <strong>' + fMillones(_totalIncl6) + '</strong><br>'
+                +   'Saldo: <strong>' + fMillones(_saldo6) + '</strong>'
+                + '</div>'
                 + '</div>';
         }
 

@@ -716,9 +716,11 @@ function buildCard(c) {
         footerLeft = 'Pago parcial registrado · Saldo restante: ' + fmt(c.saldo);
 
     } else if (c.estado === 'PENDIENTE') {
-        var declSum = (c.comprobantes||[]).reduce(function(s,cp){ return s + (Number(cp.monto_declarado)||0); }, 0);
-        var declMostrar = declSum > 0 ? Math.max(0, declSum - (Number(c.pagado)||0)) : (Number(c.montoTransferido)||0);
-        var esParcialDec = declMostrar > 0 && c.monto && declMostrar < c.monto;
+        var declMostrar = Math.max(0, Number(c.montoTransferido) || 0);   // declarado a revisar (esta cuota está PENDIENTE)
+        var _abonAprob = Number(c.pagado) || 0;
+        var _totalInclP = _abonAprob + declMostrar;
+        var _saldoP = Math.max(0, (Number(c.monto)||0) - _totalInclP);
+        var esParcialDec = declMostrar > 0 && c.monto && _totalInclP < c.monto;
         var msgInfBox = esParcialDec
             ? '🕐 <strong>Pago parcial declarado: ' + fmt(declMostrar) + '</strong> de ' + fmt(c.monto) + ' — Esperando revisión de Cooperadora'
             : '🕐 <strong>Comprobante enviado</strong> — Esperando revisión de Cooperadora';
@@ -728,8 +730,11 @@ function buildCard(c) {
             + '<div><div class="detail-label">Período</div><div class="detail-value">' + esc(c.periodo) + '</div></div>'
             + '<div><div class="detail-label">Vencimiento</div><div class="detail-value">' + c.venc + '</div></div>'
             + (esParcialDec
-                ? '<div><div class="detail-label">Monto declarado</div><div class="detail-value highlight-info">' + fmt(declMostrar) + '</div></div>'
-                  + '<div><div class="detail-label">Total cuota</div><div class="detail-value">' + fmt(c.monto) + '</div></div>'
+                ? '<div><div class="detail-label">Monto total</div><div class="detail-value">' + fmt(c.monto) + '</div></div>'
+                  + '<div><div class="detail-label">Abonado (aprobado)</div><div class="detail-value">' + fmt(_abonAprob) + '</div></div>'
+                  + '<div><div class="detail-label">Pago parcial declarado (a revisar)</div><div class="detail-value highlight-info">' + fmt(declMostrar) + '</div></div>'
+                  + '<div><div class="detail-label">Total abonado (incl. declarado)</div><div class="detail-value">' + fmt(_totalInclP) + '</div></div>'
+                  + '<div><div class="detail-label">Saldo</div><div class="detail-value">' + fmt(_saldoP) + '</div></div>'
                 : '<div><div class="detail-label">Monto a pagar</div><div class="detail-value">' + fmt(c.monto) + '</div></div>')
             + (c.desc > 0 ? '<div><div class="detail-label">Precio original</div><div class="detail-value" style="text-decoration:line-through;color:#bbb;">' + fmt(c.original) + '</div></div><div><div class="detail-label">Descuento</div><div class="detail-value highlight-success">-' + c.desc + '%</div></div>' : '');
         footerBtn = '<button class="btn btn-outline btn-sm" onclick="abrirModal(' + c.cobro_id + ')">➕ Agregar comprobante</button>';
@@ -760,7 +765,8 @@ function buildCard(c) {
         compsHtml = '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">'
             + c.comprobantes.map(function(cp, i){
                 var n = c.comprobantes.length > 1 ? ' ' + (i + 1) : '';
-                return '<button class="btn btn-outline btn-sm" onclick="verDocumento(\'' + escJs(cp.url) + '\',\'Comprobante' + n + '\',\'' + escJs(c.concepto) + '\')">📎 Comprobante' + n + '</button>';
+                var m = (cp.monto_declarado != null && Number(cp.monto_declarado) > 0) ? ' — ' + fmt(Number(cp.monto_declarado)) : '';
+                return '<button class="btn btn-outline btn-sm" onclick="verDocumento(\'' + escJs(cp.url) + '\',\'Comprobante' + n + '\',\'' + escJs(c.concepto) + '\')">📎 Comprobante' + n + m + '</button>';
               }).join('')
             + '</div>';
     }

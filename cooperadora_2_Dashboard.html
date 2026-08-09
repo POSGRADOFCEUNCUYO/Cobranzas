@@ -644,6 +644,16 @@
         // está oculta; sin esto el botón quedaba deshabilitado para siempre.
         var _btnAp = document.getElementById('ap-btn-aprobar');
         if (_btnAp) { _btnAp.disabled = false; _btnAp.style.opacity = '1'; _btnAp.style.cursor = 'pointer'; }
+
+        // Pre-cargar el monto que DECLARÓ el estudiante (a revisar), para que cooperadora lo vea y lo pueda ajustar
+        var _declM = (resolverEstadoCobro(cobro) === 'PENDIENTE') ? Math.max(0, Number(cobro.monto_transferido||0)) : 0;
+        var _totM = Number(cobro.monto_final || cobro.monto || 0);
+        if (_declM > 0 && _declM < _totM) {
+            selectPaymentType('partial');
+            var _inpAb = document.getElementById('ap-monto-abonado');
+            if (_inpAb) _inpAb.value = _declM;
+            calculateRemaining();
+        }
     }
 
     async function cargarCobro() {
@@ -769,6 +779,18 @@
             var programaCohorte = programa + (cohorte ? ' – ' + cohorte : '');
             var monto = fMillones(c.monto_final || c.monto_cuota || 0, c.moneda);
             var vencimiento = fFecha(c.fecha_vencimiento);
+            // Números visuales: total / abonado aprobado / declarado a revisar / total incl. / saldo
+            var _mfinal = Number(c.monto_final || c.monto_cuota || 0);
+            var _abon = (c.monto_abonado != null && Number(c.monto_abonado) > 0) ? Number(c.monto_abonado) : Math.max(0, _mfinal - (Number(c.saldo_pendiente)||0));
+            var _declCard = (resolverEstadoCobro(c) === 'PENDIENTE') ? Math.max(0, Number(c.monto_transferido||0)) : 0;
+            var _totalIncl = _abon + _declCard;
+            var _saldoMostrar = Math.max(0, _mfinal - _totalIncl);
+            var _extraGrid = (_abon > 0 || _declCard > 0)
+                ? '<div class="cuota-item"><div class="cuota-label">Abonado (aprobado)</div><div class="cuota-value">' + fMillones(_abon, c.moneda) + '</div></div>'
+                  + (_declCard > 0 ? '<div class="cuota-item"><div class="cuota-label">Declarado a revisar</div><div class="cuota-value" style="color:#b45309;font-weight:700;">' + fMillones(_declCard, c.moneda) + '</div></div>' : '')
+                  + '<div class="cuota-item"><div class="cuota-label">Total abonado (incl. declarado)</div><div class="cuota-value">' + fMillones(_totalIncl, c.moneda) + '</div></div>'
+                  + '<div class="cuota-item"><div class="cuota-label">Saldo</div><div class="cuota-value">' + fMillones(_saldoMostrar, c.moneda) + '</div></div>'
+                : '';
             var tiempo = tiempoRelativo(c.comprobante_fecha || c.updated_at || c.created_at);
             var esReciente = (new Date() - new Date(c.updated_at || c.created_at)) < 3600000;
             // Un comprobante en esta cola está esperando revisión → PENDIENTE para todos los roles
@@ -802,9 +824,10 @@
                 + '</div>'
                 + '<div class="cuota-info"><div class="cuota-grid">'
                 +   '<div class="cuota-item"><div class="cuota-label">Cuota</div><div class="cuota-value">' + esc(cuotaLabel) + '</div></div>'
-                +   '<div class="cuota-item"><div class="cuota-label">Monto</div><div class="cuota-value highlight">' + esc(monto) + '</div></div>'
+                +   '<div class="cuota-item"><div class="cuota-label">Monto total</div><div class="cuota-value highlight">' + esc(monto) + '</div></div>'
                 +   '<div class="cuota-item"><div class="cuota-label">Vencimiento</div><div class="cuota-value">' + esc(vencimiento) + '</div></div>'
                 +   '<div class="cuota-item"><div class="cuota-label">Estado</div><div class="cuota-value" style="color:' + _estadoColor + ';">' + esc(estadoLabel) + '</div></div>'
+                +   _extraGrid
                 + '</div></div>'
                 + '<div class="leyenda-recibo">'
                 +   '<div class="leyenda-label">&#x1F9FE; Leyenda para el recibo</div>'
