@@ -1870,19 +1870,17 @@ async function enviarNotificaciones() {
             // Si no hay ninguna vencida, usar todas las pendientes (recordatorio preventivo)
             if (cobrosDetalle.length === 0) cobrosDetalle = cobrosVencidos;
 
-            // Recordatorio de vencimiento: incluir también la/s cuota/s que vencen en el mes
-            // corriente (aunque todavía no estén vencidas), que es el sentido del recordatorio.
+            // Recordatorio de vencimiento: reclamar SOLO hasta el mes en curso. Se toman
+            // todas las cuotas pendientes con vencimiento hasta el fin del mes actual (las
+            // ya vencidas de meses anteriores + la/s que vencen este mes) y NUNCA cuotas de
+            // meses futuros, que todavía no corresponde reclamar.
             if (tipo === 'recordatorio') {
                 var _hoyR = new Date();
-                var _mR = _hoyR.getMonth(), _aR = _hoyR.getFullYear();
-                var _keysR = {};
-                cobrosDetalle.forEach(function(c) { _keysR[keyCuota(c.concepto, c.periodo)] = true; });
-                cobrosVencidos.forEach(function(c) {
-                    if (!c.fecha_vencimiento) return;
+                var _finMesR = new Date(_hoyR.getFullYear(), _hoyR.getMonth() + 1, 0, 23, 59, 59);
+                cobrosDetalle = cobrosVencidos.filter(function(c) {
+                    if (!c.fecha_vencimiento) return false;
                     var _d = new Date(String(c.fecha_vencimiento).split('T')[0] + 'T12:00:00');
-                    if (_d.getMonth() !== _mR || _d.getFullYear() !== _aR) return;
-                    var _k = keyCuota(c.concepto, c.periodo);
-                    if (!_keysR[_k]) { _keysR[_k] = true; cobrosDetalle.push(c); }
+                    return _d <= _finMesR;
                 });
                 cobrosDetalle.sort(function(a, b) {
                     return String(a.fecha_vencimiento || '').localeCompare(String(b.fecha_vencimiento || ''));
