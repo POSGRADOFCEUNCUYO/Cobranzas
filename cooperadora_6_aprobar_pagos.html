@@ -464,6 +464,19 @@
             var declaradoSub = esParcialRow
                 ? ' · <span style="color:#d68910;font-weight:600;">Parcial declarado: ' + fMillones(mtRow) + ' de ' + fMillones(c.monto_final) + '</span>'
                 : '';
+            // Leyenda para el recibo de Tango — formato: <N° programa> <Cohorte> <Período> <DNI>
+            var _cohNom = (c.cohortes && c.cohortes.nombre) ? c.cohortes.nombre : '';
+            var leyendaRecibo = [c.programa_id, _cohNom, c.periodo, c.dni].filter(function(x) {
+                var s = (x == null ? '' : String(x)).trim();
+                return s !== '' && s !== '—';
+            }).join(' ');
+            var leyendaHtml = '<div class="leyenda-recibo" style="margin-top:10px;" onclick="event.stopPropagation()">'
+                + '<div class="leyenda-label">&#x1F9FE; Leyenda para el recibo</div>'
+                + '<div class="leyenda-row">'
+                +   '<code class="leyenda-text">' + esc(leyendaRecibo) + '</code>'
+                +   '<button class="btn-copiar-leyenda" onclick="copiarLeyenda(this)">&#x1F4CB; Copiar</button>'
+                + '</div>'
+                + '</div>';
             return '<div class="student-row tiene-pendiente" onclick="abrirDetalle(\'' + c.cobro_id + '\')" style="cursor:pointer;">'
                 + '<div class="student-avatar">' + iniciales + '</div>'
                 + '<div class="student-main">'
@@ -474,6 +487,7 @@
                 +     ' · ' + esc(cuotaLabel)
                 +     (c.periodo ? ' · ' + esc(c.periodo) : '')
                 +     declaradoSub + '</div>'
+                +   leyendaHtml
                 + '</div>'
                 + '<div class="student-badges">'
                 +   '<span class="badge ' + (esParcialRow ? 'badge-parcial' : 'badge-pendiente') + '">' + (esParcialRow ? 'Pago parcial declarado' : 'Comprobante pendiente') + '</span>'
