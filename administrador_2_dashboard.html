@@ -448,7 +448,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     if (!sesion || sesion.rol !== 'ADMINISTRADOR') { window.location.href = 'portal_login.html'; return; }
 
     document.getElementById('btn-admin-name').textContent = sesion.nombre || 'Admin';
-    document.getElementById('hdr-saludo').textContent = '👋 Hola, ' + (sesion.nombre || 'Administrador/a');
+    document.getElementById('hdr-saludo').textContent = '👋 Hola, ' + (sesion.nombre_pila || sesion.nombre || 'Administrador/a');
 
     cargarDashboard();
     cargarNotificaciones();

@@ -327,7 +327,7 @@
         var dni = sesion.dni;
 
         document.getElementById('hdr-saludo').textContent =
-            '👋 Hola, ' + (sesion.nombre || 'Estudiante');
+            '👋 Hola, ' + (sesion.nombre_pila || sesion.nombre || 'Estudiante');
 
         try {
             var sb = await getSupabase();

@@ -902,7 +902,7 @@
         if (!sesion || sesion.rol !== 'COOPERADORA') { window.location.href = 'portal_login.html'; return; }
 
         var _sal = document.getElementById('hdr-saludo');
-        if (_sal) _sal.textContent = '👋 Hola, ' + (sesion.nombre || 'Cooperadora');
+        if (_sal) _sal.textContent = '👋 Hola, ' + (sesion.nombre_pila || sesion.nombre || 'Cooperadora');
 
         /* Dashboard stats + comprobantes pendientes + notificaciones en paralelo */
         Promise.all([

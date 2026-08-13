@@ -176,6 +176,7 @@ function getSesion() {
     return {
         rol:         rol,
         nombre:      localStorage.getItem('sigpo_nombre'),
+        nombre_pila: localStorage.getItem('sigpo_nombre2'),
         dni:         localStorage.getItem('sigpo_dni'),
         email:       localStorage.getItem('sigpo_email'),
         programa_id: localStorage.getItem('sigpo_programa_id'),
