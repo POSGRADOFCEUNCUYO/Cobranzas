@@ -239,7 +239,7 @@
             var progIds = asig.progIds;
             var cohIdsAsignadas = asig.cohIds;
 
-            document.getElementById('headerTitle').textContent = sesion.nombre || 'Coordinador/a';
+            document.getElementById('headerTitle').textContent = '👋 Hola, ' + (sesion.nombre || 'Coordinador/a');
 
             if (!progIds.length && !cohIdsAsignadas.length) {
                 document.getElementById('headerSub').textContent = 'Sin programas asignados';

@@ -211,6 +211,7 @@
         <div class="header-content">
             <div class="header-left">
                 <h1>Dashboard Cooperadora</h1>
+                <p id="hdr-saludo"></p>
             </div>
             <div class="header-right" style="display:flex;align-items:center;gap:12px;">
                 <!-- Campana de Notificaciones -->
@@ -899,6 +900,9 @@
     document.addEventListener('DOMContentLoaded', async function() {
         var sesion = await requireAuth();
         if (!sesion || sesion.rol !== 'COOPERADORA') { window.location.href = 'portal_login.html'; return; }
+
+        var _sal = document.getElementById('hdr-saludo');
+        if (_sal) _sal.textContent = '👋 Hola, ' + (sesion.nombre || 'Cooperadora');
 
         /* Dashboard stats + comprobantes pendientes + notificaciones en paralelo */
         Promise.all([

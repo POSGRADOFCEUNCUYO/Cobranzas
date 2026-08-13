@@ -131,7 +131,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     if (!_session) { window.location.href = 'portal_login.html'; return; }
     var sesion = getSesion();
     if (!sesion || sesion.rol !== 'PROFESOR') { window.location.href = 'portal_login.html'; return; }
-    document.getElementById('headerSub').textContent = (sesion.nombre || 'Docente/a');
+    document.getElementById('headerSub').textContent = '👋 Hola, ' + (sesion.nombre || 'Docente/a');
     try { await cargar(sesion); }
     catch(e) { mostrarError('Error al cargar datos: ' + e.message); }
 });

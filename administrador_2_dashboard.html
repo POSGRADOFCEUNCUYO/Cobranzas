@@ -142,6 +142,7 @@
     <div class="header-content">
         <div class="header-left">
             <h1>⚙️ Panel de Administración</h1>
+            <p id="hdr-saludo" style="margin:4px 0 0;font-weight:700;"></p>
             <p>Sistema de Gestión de Pagos FCE-UNCUYO</p>
         </div>
         <div class="header-right">
@@ -447,6 +448,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     if (!sesion || sesion.rol !== 'ADMINISTRADOR') { window.location.href = 'portal_login.html'; return; }
 
     document.getElementById('btn-admin-name').textContent = sesion.nombre || 'Admin';
+    document.getElementById('hdr-saludo').textContent = '👋 Hola, ' + (sesion.nombre || 'Administrador/a');
 
     cargarDashboard();
     cargarNotificaciones();
