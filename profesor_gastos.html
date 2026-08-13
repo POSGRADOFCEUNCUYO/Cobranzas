@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gastos - Profesor</title>
+    <title>Gastos - Docente</title>
     <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600;700&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -350,7 +350,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     if (!_session) { window.location.href = 'portal_login.html'; return; }
     var sesion = getSesion();
     if (!sesion || sesion.rol !== 'PROFESOR') { window.location.href = 'portal_login.html'; return; }
-    document.getElementById('header-sub').textContent = (sesion.nombre || 'Profesor/a') + ' · Gastos de mis programas y cohortes asignadas';
+    document.getElementById('header-sub').textContent = (sesion.nombre || 'Docente/a') + ' · Gastos de mis programas y cohortes asignadas';
 
     try {
         var sb = await getSupabase();

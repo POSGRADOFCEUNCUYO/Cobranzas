@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reportes - Profesor</title>
+    <title>Reportes - Docente</title>
     <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600;700&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -698,7 +698,7 @@ async function exportarPDF() {
         pdf.rect(0, 0, pW, 18, 'F');
         pdf.setTextColor(255, 255, 255);
         pdf.setFontSize(14); pdf.setFont(undefined, 'bold');
-        pdf.text('Reportes Profesor', marg, 11);
+        pdf.text('Reportes Docente', marg, 11);
         pdf.setFontSize(9); pdf.setFont(undefined, 'normal');
         pdf.text(document.getElementById('headerSubtitle').textContent + '  •  ' + new Date().toLocaleDateString('es-AR'), pW - marg, 11, { align: 'right' });
 
