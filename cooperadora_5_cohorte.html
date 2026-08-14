@@ -3019,7 +3019,10 @@
 
         function apRemoveFile() {
             document.getElementById('aprobReciboFile').value = '';
-            document.getElementById('apUploadBox').style.display = 'block';
+            // La subida manual del recibo está deshabilitada (Tango adjunta el recibo
+            // automáticamente): el recuadro de subida queda oculto para no mostrar una
+            // caja punteada vacía en el modal de aprobación.
+            document.getElementById('apUploadBox').style.display = 'none';
             document.getElementById('apFileUploaded').style.display = 'none';
             document.getElementById('apWarnNoFile').style.display = 'none';
             // El recibo es opcional (lo adjunta el script de Tango): no bloquear el botón Aprobar.
