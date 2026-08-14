@@ -673,10 +673,14 @@ function buildCard(c) {
     var cohorte = COHORTES.find(function(co) { return co.id === c.coh_id; });
     var infoExtra = '', gridHtml = '', footerBtn = '', footerLeft = '';
     var programaStr = (prog ? prog.nombre : '') + (cohorte ? ' · ' + cohorte.nombre : '');
+    // La fila "Concepto" solo se muestra cuando el concepto NO es una cuota (ej. Inscripción);
+    // las cuotas ya se identifican por el período que figura en el título de la tarjeta.
+    var esCuota = /^cuota\b/i.test((c.concepto || '').trim());
+    var conceptoCell = esCuota ? '' : '<div><div class="detail-label">Concepto</div><div class="detail-value">' + esc(c.concepto) + '</div></div>';
 
     if (c.estado === 'ABONADA') {
         gridHtml = ''
-            + '<div><div class="detail-label">Concepto</div><div class="detail-value">' + esc(c.concepto) + '</div></div>'
+            + conceptoCell
             + '<div><div class="detail-label">Período</div><div class="detail-value">' + esc(c.periodo) + '</div></div>'
             + '<div><div class="detail-label">Vencimiento</div><div class="detail-value">' + c.venc + '</div></div>'
             + '<div><div class="detail-label">Monto abonado</div><div class="detail-value highlight-success">' + fmt(c.pagado) + '</div></div>'
@@ -691,7 +695,7 @@ function buildCard(c) {
     } else if (c.estado === 'EN_MORA') {
         infoExtra = '<div class="mora-box">⚠️ <strong>' + c.diasMora + ' días de atraso</strong> · El monto actualizado ya incluye los intereses aplicados por la administración.</div>';
         gridHtml = ''
-            + '<div><div class="detail-label">Concepto</div><div class="detail-value">' + esc(c.concepto) + '</div></div>'
+            + conceptoCell
             + '<div><div class="detail-label">Período</div><div class="detail-value">' + esc(c.periodo) + '</div></div>'
             + '<div><div class="detail-label">Venció el</div><div class="detail-value" style="color:var(--danger);">' + c.venc + '</div></div>'
             + (c.pagado > 0 ? '<div><div class="detail-label">Ya pagaste</div><div class="detail-value highlight-info">' + fmt(c.pagado) + '</div></div><div><div class="detail-label">Saldo pendiente</div><div class="detail-value highlight-danger">' + fmt(c.saldo) + '</div></div>' : '<div><div class="detail-label">Total a pagar hoy</div><div class="detail-value highlight-danger">' + fmt(c.monto) + '</div></div>')
@@ -703,7 +707,7 @@ function buildCard(c) {
         var pct = c.monto > 0 ? Math.round((c.pagado / c.monto) * 100) : 0;
         infoExtra = '<div class="parcial-bar-wrap"><div class="parcial-bar-label"><span>Pagado: ' + fmt(c.pagado) + ' (' + pct + '%)</span><span>Saldo: ' + fmt(c.saldo) + '</span></div><div class="parcial-bar"><div class="parcial-bar-fill" style="width:' + pct + '%"></div></div></div>';
         gridHtml = ''
-            + '<div><div class="detail-label">Concepto</div><div class="detail-value">' + esc(c.concepto) + '</div></div>'
+            + conceptoCell
             + '<div><div class="detail-label">Período</div><div class="detail-value">' + esc(c.periodo) + '</div></div>'
             + '<div><div class="detail-label">Vencimiento</div><div class="detail-value">' + c.venc + '</div></div>'
             + '<div><div class="detail-label">Cuota total</div><div class="detail-value">' + fmt(c.monto) + '</div></div>'
@@ -726,7 +730,7 @@ function buildCard(c) {
             : '🕐 <strong>Comprobante enviado</strong> — Esperando revisión de Cooperadora';
         infoExtra = '<div style="background:#fef3c7;border-left:4px solid var(--clr-warning);padding:12px 16px;border-radius:8px;margin-bottom:12px;font-size:13px;color:#92400e;">' + msgInfBox + '</div>';
         gridHtml = ''
-            + '<div><div class="detail-label">Concepto</div><div class="detail-value">' + esc(c.concepto) + '</div></div>'
+            + conceptoCell
             + '<div><div class="detail-label">Período</div><div class="detail-value">' + esc(c.periodo) + '</div></div>'
             + '<div><div class="detail-label">Vencimiento</div><div class="detail-value">' + c.venc + '</div></div>'
             + (esParcialDec
@@ -742,7 +746,7 @@ function buildCard(c) {
 
     } else if (c.estado === 'NO_ABONADA') {
         gridHtml = ''
-            + '<div><div class="detail-label">Concepto</div><div class="detail-value">' + esc(c.concepto) + '</div></div>'
+            + conceptoCell
             + '<div><div class="detail-label">Período</div><div class="detail-value">' + esc(c.periodo) + '</div></div>'
             + '<div><div class="detail-label">Vencimiento</div><div class="detail-value">' + c.venc + '</div></div>'
             + '<div><div class="detail-label">Monto a pagar</div><div class="detail-value">' + fmt(c.monto) + '</div></div>'
@@ -753,7 +757,7 @@ function buildCard(c) {
     } else if (c.estado === 'A_DEFINIR') {
         infoExtra = '<div class="indefinida-box">⚙️ El monto de esta cuota aún no fue definido por la administración. Te notificaremos cuando esté disponible.</div>';
         gridHtml = ''
-            + '<div><div class="detail-label">Concepto</div><div class="detail-value">' + esc(c.concepto) + '</div></div>'
+            + conceptoCell
             + '<div><div class="detail-label">Período</div><div class="detail-value">' + esc(c.periodo) + '</div></div>'
             + '<div><div class="detail-label">Vencimiento estimado</div><div class="detail-value">' + c.venc + '</div></div>'
             + '<div><div class="detail-label">Monto</div><div class="detail-value highlight-gray">Por definir</div></div>';
@@ -773,7 +777,7 @@ function buildCard(c) {
 
     return '<div class="cuota-card estado-' + c.estado + '">'
         + '<div class="cuota-header">'
-        + '<div class="cuota-title">' + esc(c.concepto) + '<small>' + esc(programaStr) + '</small></div>'
+        + '<div class="cuota-title">' + esc(c.periodo || c.concepto) + '<small>' + esc(programaStr) + '</small></div>'
         + '<span class="badge badge-' + c.estado + '">' + (ETIQUETAS[c.estado] || c.estado) + '</span>'
         + '</div>'
         + infoExtra
