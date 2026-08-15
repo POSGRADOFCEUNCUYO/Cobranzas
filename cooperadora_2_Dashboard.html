@@ -549,9 +549,6 @@
         selectPaymentType('full');
         removeFile();
         cancelarRechazo();
-        document.getElementById('ap-btn-aprobar').disabled = true;
-        document.getElementById('ap-btn-aprobar').style.opacity = '0.5';
-        document.getElementById('ap-btn-aprobar').style.cursor = 'not-allowed';
         document.getElementById('modalAprobarOverlay').classList.add('active');
         document.body.style.overflow = 'hidden';
         cargarCobro();
@@ -605,14 +602,15 @@
     function removeFile() {
         var inp = document.getElementById('ap-recibo-file');
         if (inp) inp.value = '';
+        // El recibo lo adjunta Tango: la subida es opcional y NO bloquea la aprobación.
         var ub = document.getElementById('ap-upload-box-wrapper');
         var fu = document.getElementById('ap-file-uploaded');
         var wn = document.getElementById('ap-warning-no-file');
-        if (ub) ub.style.display = 'block';
+        if (ub) ub.style.display = 'none';
         if (fu) fu.style.display = 'none';
-        if (wn) wn.style.display = 'block';
+        if (wn) wn.style.display = 'none';
         var btn = document.getElementById('ap-btn-aprobar');
-        if (btn) { btn.disabled = true; btn.style.opacity = '0.5'; btn.style.cursor = 'not-allowed'; }
+        if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer'; }
     }
 
     function poblarInfo(cobro) {
