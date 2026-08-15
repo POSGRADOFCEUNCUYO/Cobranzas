@@ -717,10 +717,9 @@
                 <input type="number" id="apr-monto-aprobado" min="1" step="0.01" placeholder="0.00" aria-label="Monto aprobado en pesos">
                 <div class="mhint">Debe ser menor al monto total de la cuota.</div>
             </div>
-            <div class="mfield">
-                <label>📄 Recibo <span style="color:var(--clr-danger);font-weight:700;">*</span> <span style="font-weight:400;color:#767676;font-size:11px;">(obligatorio — Regla 1)</span></label>
+            <div class="mfield" style="display:none;">
+                <label>📄 Recibo <span style="font-weight:400;color:#767676;font-size:11px;">(opcional)</span></label>
                 <input type="file" id="apr-recibo-file" accept=".pdf,.jpg,.jpeg,.png" aria-label="Subir recibo" style="border:1.5px dashed #e0e0e0;border-radius:8px;padding:8px;cursor:pointer;width:100%;">
-                <div class="mhint">Sin recibo no se puede aprobar.</div>
             </div>
         </div>
         <div class="modal-footer">
@@ -2487,10 +2486,8 @@ async function aprobarCuota() {
     if (!_aprCobro) return;
     var tipo = document.querySelector('input[name="apr-tipo"]:checked').value;
     var reciboFile = document.getElementById('apr-recibo-file').files[0];
-    // Regla 1: sin recibo no se puede aprobar
-    if (!reciboFile) {
-        toast('⚠️ Regla 1: Debés subir el recibo antes de aprobar.', 'err'); return;
-    }
+    // El recibo NO es obligatorio para aprobar: la factura/recibo la emite y adjunta
+    // el circuito de Tango. Si se adjunta un archivo acá se guarda; si no, se aprueba igual.
     var montoAprobado = null;
     if (tipo === 'PARCIAL') {
         montoAprobado = parseFloat(document.getElementById('apr-monto-aprobado').value);
@@ -2507,12 +2504,15 @@ async function aprobarCuota() {
     spin(true);
     try {
         var sb = await getSupabase();
-        // Subir recibo a Storage
-        var reciboPath = 'recibos/' + COHORTE_ID + '/' + _aprCobro.cobro_id + '/' + Date.now() + '_' + reciboFile.name;
-        var uploadRes = await sb.storage.from('comprobantes').upload(reciboPath, reciboFile);
-        if (uploadRes.error) throw new Error('Error al subir recibo: ' + uploadRes.error.message);
-        var urlData = sb.storage.from('comprobantes').getPublicUrl(reciboPath);
-        var reciboUrl = urlData.data.publicUrl;
+        // Subir recibo a Storage SOLO si se adjuntó uno (opcional; normalmente lo adjunta Tango)
+        var reciboUrl = null;
+        if (reciboFile) {
+            var reciboPath = 'recibos/' + COHORTE_ID + '/' + _aprCobro.cobro_id + '/' + Date.now() + '_' + reciboFile.name;
+            var uploadRes = await sb.storage.from('comprobantes').upload(reciboPath, reciboFile);
+            if (uploadRes.error) throw new Error('Error al subir recibo: ' + uploadRes.error.message);
+            var urlData = sb.storage.from('comprobantes').getPublicUrl(reciboPath);
+            reciboUrl = urlData.data.publicUrl;
+        }
 
         if (tipo === 'COMPLETO') {
             // Regla 2: aprobación total → ABONADA
