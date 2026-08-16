@@ -812,11 +812,7 @@ function abrirModal(cobroId) {
         + (prog ? esc(prog.nombre) : '') + (cohorte ? ' · ' + esc(cohorte.nombre) : '') + '<br>'
         + 'Período: ' + esc(c.periodo) + ' · Saldo a pagar: <strong style="color:var(--danger);">' + fmt(saldoModal) + '</strong>';
 
-    // NO pre-cargar el total: el estudiante debe escribir el monto que efectivamente
-    // transfirió (puede ser parcial). Pre-cargar el total hacía que se declarara de más.
-    var _inpMonto = document.getElementById('inputMonto');
-    _inpMonto.value = '';
-    _inpMonto.placeholder = 'Monto que transferiste';
+    document.getElementById('inputMonto').value        = saldoModal || '';
     document.getElementById('inputNroOp').value        = '';
     document.getElementById('inputObs').value          = '';
     document.getElementById('uploadProgress').classList.remove('show');
