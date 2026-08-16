@@ -741,7 +741,9 @@ function buildCard(c) {
                   + '<div><div class="detail-label">Saldo</div><div class="detail-value">' + fmt(_saldoP) + '</div></div>'
                 : '<div><div class="detail-label">Monto a pagar</div><div class="detail-value">' + fmt(c.monto) + '</div></div>')
             + (c.desc > 0 ? '<div><div class="detail-label">Precio original</div><div class="detail-value" style="text-decoration:line-through;color:#bbb;">' + fmt(c.original) + '</div></div><div><div class="detail-label">Descuento</div><div class="detail-value highlight-success">-' + c.desc + '%</div></div>' : '');
-        footerBtn = '<button class="btn btn-outline btn-sm" onclick="abrirModal(' + c.cobro_id + ')">➕ Agregar comprobante</button>';
+        // Mientras el comprobante está en revisión NO se permite subir otro comprobante
+        // (evita apilar comprobantes y declaraciones mientras Cooperadora verifica).
+        footerBtn = '';
         footerLeft = esParcialDec ? 'Pago parcial declarado · Esperando verificación de Cooperadora' : 'Pendiente de verificación por Cooperadora';
 
     } else if (c.estado === 'NO_ABONADA') {
@@ -810,7 +812,11 @@ function abrirModal(cobroId) {
         + (prog ? esc(prog.nombre) : '') + (cohorte ? ' · ' + esc(cohorte.nombre) : '') + '<br>'
         + 'Período: ' + esc(c.periodo) + ' · Saldo a pagar: <strong style="color:var(--danger);">' + fmt(saldoModal) + '</strong>';
 
-    document.getElementById('inputMonto').value        = saldoModal || '';
+    // NO pre-cargar el total: el estudiante debe escribir el monto que efectivamente
+    // transfirió (puede ser parcial). Pre-cargar el total hacía que se declarara de más.
+    var _inpMonto = document.getElementById('inputMonto');
+    _inpMonto.value = '';
+    _inpMonto.placeholder = 'Monto que transferiste';
     document.getElementById('inputNroOp').value        = '';
     document.getElementById('inputObs').value          = '';
     document.getElementById('uploadProgress').classList.remove('show');
