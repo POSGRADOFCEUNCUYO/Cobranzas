@@ -841,9 +841,12 @@ async function reclamarSel() {
         var alias   = V.config.alias_banco || '—';
 
         var emails = [];
+        var skipBaja = 0;  // estudiantes de baja salteados (no se les reclama)
         sel.forEach(function(dni) {
             var est = V.data.estudiantes.find(function(e){ return String(e.dni) === String(dni); });
             if (!est || !est.email) return;
+            // No reclamar a estudiantes dados de baja (congelados): se saltean aunque estén seleccionados.
+            if (est.estado_academico === 'BAJA') { skipBaja++; return; }
             var cobrosVenc = (est.cobros || []).filter(function(c){ return c._re === 'EN_MORA' || c._re === 'PAGO_PARCIAL'; });
             if (!cobrosVenc.length) cobrosVenc = (est.cobros || []).filter(function(c){ return c._re !== 'ABONADA' && c._re !== 'A_DEFINIR' && c._re !== 'NO_APLICA'; });
             // Recordatorio de vencimiento: reclamar SOLO hasta el mes en curso. Se toman todas
@@ -944,9 +947,17 @@ async function reclamarSel() {
             else { ok = rows.length; }
         }
 
-        var msg = '✓ ' + ok + ' reclamo' + (ok!==1?'s':'') + ' encolado' + (ok!==1?'s':'') + ' (se envían en segundos)';
-        if (err) msg += ' ⚠️ ' + err + ' error(es)' + (ultimoError ? ': ' + ultimoError : '');
-        toast(msg, err ? 'err' : 'ok');
+        var msg;
+        if (ok === 0 && err === 0) {
+            msg = skipBaja > 0
+                ? '⚠️ No se envió nada: ' + skipBaja + ' estudiante' + (skipBaja!==1?'s':'') + ' de baja (no se reclama a bajas).'
+                : 'No había estudiantes a reclamar.';
+        } else {
+            msg = '✓ ' + ok + ' reclamo' + (ok!==1?'s':'') + ' encolado' + (ok!==1?'s':'') + ' (se envían en segundos)';
+            if (skipBaja > 0) msg += ' · ' + skipBaja + ' de baja omitido' + (skipBaja!==1?'s':'');
+            if (err) msg += ' ⚠️ ' + err + ' error(es)' + (ultimoError ? ': ' + ultimoError : '');
+        }
+        toast(msg, (err || ok === 0) ? 'err' : 'ok');
         deselAll();
         cerrar('modal-correo');
     } catch(e) { console.error(e); toast('Error al enviar reclamos: ' + e.message, 'err'); }

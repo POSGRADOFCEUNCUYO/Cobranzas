@@ -1841,10 +1841,13 @@ async function enviarNotificaciones() {
         var notifs = [];
         var emails = [];   // { to, subject, body } para envío GAS
         var cobrosActualizar = [];
+        var skipBaja = 0;  // estudiantes de baja salteados (no se les reclama)
 
         sel.forEach(function(dni) {
             var est = V.data.estudiantes.find(function(e) { return String(e.dni) === String(dni); });
             if (!est) return;
+            // No reclamar a estudiantes dados de baja (congelados): se saltean aunque estén seleccionados.
+            if (est.estado_academico === 'BAJA') { skipBaja++; return; }
 
             var cbuVal   = cfg.cbu_banco   || V.config.cbu   || '—';
             var aliasVal = cfg.alias_banco  || V.config.alias || '—';
@@ -2016,10 +2019,18 @@ async function enviarNotificaciones() {
         }
 
         var totalNotifs = notifs.length;
-        var msgToast = '✓ ' + sel.length + ' estudiante' + (sel.length !== 1 ? 's' : '') + ' notificado' + (sel.length !== 1 ? 's' : '');
-        msgToast += ' · ' + emailsOk + ' email' + (emailsOk !== 1 ? 's' : '') + ' encolado' + (emailsOk !== 1 ? 's' : '') + ' (se envían en segundos, 1 por estudiante)';
-        if (emailsErr > 0) msgToast += ' ⚠️ ' + emailsErr + ' error(es)';
-        toast(msgToast, emailsErr > 0 ? 'err' : 'ok');
+        var msgToast;
+        if (totalNotifs === 0) {
+            msgToast = skipBaja > 0
+                ? '⚠️ No se envió nada: ' + skipBaja + ' estudiante' + (skipBaja !== 1 ? 's' : '') + ' seleccionado' + (skipBaja !== 1 ? 's están' : ' está') + ' de baja (no se reclama a bajas).'
+                : 'No había estudiantes a notificar.';
+        } else {
+            msgToast = '✓ ' + totalNotifs + ' estudiante' + (totalNotifs !== 1 ? 's' : '') + ' notificado' + (totalNotifs !== 1 ? 's' : '');
+            msgToast += ' · ' + emailsOk + ' email' + (emailsOk !== 1 ? 's' : '') + ' encolado' + (emailsOk !== 1 ? 's' : '') + ' (se envían en segundos, 1 por estudiante)';
+            if (skipBaja > 0) msgToast += ' · ' + skipBaja + ' de baja omitido' + (skipBaja !== 1 ? 's' : '');
+            if (emailsErr > 0) msgToast += ' ⚠️ ' + emailsErr + ' error(es)';
+        }
+        toast(msgToast, (emailsErr > 0 || totalNotifs === 0) ? 'err' : 'ok');
         cerrar('modal-correo');
         deselAll();
         await cargar();
