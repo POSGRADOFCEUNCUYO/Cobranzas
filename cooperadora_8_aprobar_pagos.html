@@ -515,6 +515,17 @@
                 catch(e) { window.open(cobro.comprobante_url, '_blank'); }
             };
         }
+        // Si el estudiante declaró un pago PARCIAL (monto_transferido menor al total),
+        // pre-seleccionar "Pago parcial" con el monto que declaró, para no aprobar el
+        // total por defecto e ignorar lo que efectivamente transfirió el estudiante.
+        var _mtDecl = Number(cobro.monto_transferido) || 0;
+        if (_mtDecl > 0 && _mtDecl < total) {
+            selectPaymentType('partial');
+            document.getElementById('monto-abonado').value = _mtDecl;
+            calculateRemaining();
+        } else {
+            selectPaymentType('full');
+        }
     }
 
     async function cargarCobro() {

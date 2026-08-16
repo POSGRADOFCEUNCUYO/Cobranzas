@@ -2470,10 +2470,22 @@ function abrirAprobacion(cobroId) {
     } else {
         compWrap.style.display = 'none';
     }
-    document.querySelector('input[name="apr-tipo"][value="COMPLETO"]').checked = true;
-    document.getElementById('apr-monto-aprobado').value = '';
+    // Si el estudiante declaró un pago PARCIAL (monto_transferido menor al total),
+    // pre-seleccionar "Aprobación parcial" con el monto que efectivamente declaró,
+    // para no aprobar el total por defecto e ignorar lo que puso el estudiante.
+    var _mtDecl = Number(cobro.monto_transferido) || 0;
+    var _totalCuota = Number(cobro.monto_final) || 0;
+    var _esParcialDecl = _mtDecl > 0 && _totalCuota > 0 && _mtDecl < _totalCuota;
+    if (_esParcialDecl) {
+        document.querySelector('input[name="apr-tipo"][value="PARCIAL"]').checked = true;
+        document.getElementById('apr-monto-aprobado').value = _mtDecl;
+        document.getElementById('apr-monto-parcial-wrap').style.display = 'block';
+    } else {
+        document.querySelector('input[name="apr-tipo"][value="COMPLETO"]').checked = true;
+        document.getElementById('apr-monto-aprobado').value = '';
+        document.getElementById('apr-monto-parcial-wrap').style.display = 'none';
+    }
     document.getElementById('apr-recibo-file').value    = '';
-    document.getElementById('apr-monto-parcial-wrap').style.display = 'none';
     abrir('modal-aprobacion');
 }
 
