@@ -856,6 +856,16 @@ async function rechazarPago(cobroId, forzar, motivoRechazo) {
 
     var nuevoEstado = (rpcRes && rpcRes.nuevo_estado) || 'NO_ABONADA';
 
+    // El comprobante rechazado está mal → se elimina. La fila de la tabla `comprobantes`
+    // la borra el trigger en la BD (al quedar comprobante_url en NULL); acá borramos el
+    // ARCHIVO del bucket vía Storage API. Best-effort: no bloquea el rechazo.
+    try {
+        if (cobro.comprobante_url) {
+            var _m = String(cobro.comprobante_url).match(/\/object\/(?:public|sign|authenticated)\/comprobantes\/(.+?)(?:\?|$)/);
+            if (_m && _m[1]) await sb.storage.from('comprobantes').remove([decodeURIComponent(_m[1])]);
+        }
+    } catch (e) { console.warn('No se pudo borrar el archivo del comprobante rechazado:', e.message || e); }
+
     // Notificar al estudiante por email
     try {
         const { data: est } = await sb.from('estudiantes')
