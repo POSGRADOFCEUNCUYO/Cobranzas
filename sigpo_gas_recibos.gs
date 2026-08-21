@@ -107,30 +107,47 @@ function _procesarUnPDF(att, msg) {
   datos.email_asunto = msg.getSubject();
   Logger.log('Datos extraídos: ' + JSON.stringify(datos));
 
-  // 3. Validar campos mínimos
-  if (!datos.dni_normalizado) {
-    _registrarPendiente(datos, 'No se pudo extraer DNI/CUIT del PDF.');
-    return;
-  }
-  if (!datos.programa_id || !datos.periodo_bd) {
-    _registrarPendiente(datos,
-      'No se pudo parsear el Concepto del PDF. Texto extraído: "' + (datos.concepto_raw || '') + '"');
-    return;
-  }
-
-  // 4. Evitar procesar dos veces el mismo recibo
+  // 3. Evitar procesar dos veces el mismo recibo (aplica a ambas vías)
   if (datos.nro_recibo && _reciboDuplicado(datos.nro_recibo)) {
     Logger.log('Recibo ' + datos.nro_recibo + ' ya procesado. Saltando.');
     return;
   }
 
-  // 5. Subir PDF a Storage (se hace SIEMPRE, antes de buscar el cobro,
-  //    para que quede disponible tanto si se asigna automáticamente como si va a pendientes)
+  // 4. Subir PDF a Storage SIEMPRE, antes de resolver el cobro, para que quede
+  //    disponible tanto si se asigna solo como si va a pendientes.
   var fileBase = datos.nro_recibo || ('sin-nro-' + Date.now());
-  var fileName = 'recibos-tango/' + fileBase + '.pdf';
-  var pdfUrl   = _subirStorage(att.copyBlob(), fileName);
+  var pdfUrl   = _subirStorage(att.copyBlob(), 'recibos-tango/' + fileBase + '.pdf');
 
-  // 6. Buscar la cuota en Supabase
+  // ── VÍA 1: la leyenda trae "Cobro <n>" → llave directa e inequívoca ──
+  if (datos.cobro_id) {
+    var cobroIdOk = _buscarCobroPorId(datos.cobro_id, datos.dni_normalizado, datos);
+    if (!cobroIdOk) {
+      _registrarPendiente(datos, 'La leyenda indica Cobro ' + datos.cobro_id + ' pero no existe ese cobro en el sistema.', pdfUrl);
+      return;
+    }
+    if (!pdfUrl) {
+      _registrarPendiente(datos, 'Error al subir el PDF a Supabase Storage.', null);
+      return;
+    }
+    var okId = _registrarExito(cobroIdOk, datos.nro_recibo, pdfUrl, datos);
+    if (okId) {
+      Logger.log('✅ Recibo ' + datos.nro_recibo + ' asignado por cobro_id=' + cobroIdOk);
+    } else {
+      _registrarPendiente(datos, 'Error al guardar en la BD (PDF ya subido a Storage: ' + pdfUrl + ').', pdfUrl);
+    }
+    return;
+  }
+
+  // ── VÍA 2 (fallback): recibos viejos sin "Cobro <n>" → método por período ──
+  if (!datos.dni_normalizado) {
+    _registrarPendiente(datos, 'No se pudo extraer DNI/CUIT del PDF (y la leyenda no trae "Cobro <n>").', pdfUrl);
+    return;
+  }
+  if (!datos.programa_id || !datos.periodo_bd) {
+    _registrarPendiente(datos,
+      'No se pudo parsear el Concepto del PDF (y la leyenda no trae "Cobro <n>"). Texto extraído: "' + (datos.concepto_raw || '') + '"', pdfUrl);
+    return;
+  }
   var cobro = _buscarCobro(datos.dni_normalizado, datos.programa_id, datos.periodo_bd, datos.cohorte_token);
   if (cobro === 'MULTIPLE') {
     _registrarPendiente(datos, 'Se encontraron múltiples cuotas para los mismos datos. Revisión manual requerida.', pdfUrl);
@@ -148,8 +165,6 @@ function _procesarUnPDF(att, msg) {
     _registrarPendiente(datos, 'Error al subir el PDF a Supabase Storage.', null);
     return;
   }
-
-  // 7. Registrar éxito: insert recibos_tango + update cobros.recibo_url
   var ok = _registrarExito(cobro.cobro_id, datos.nro_recibo, pdfUrl, datos);
   if (ok) {
     Logger.log('✅ Recibo ' + datos.nro_recibo + ' asignado a cobro_id=' + cobro.cobro_id);
@@ -177,13 +192,16 @@ function _extraerTextoPDF(attachment) {
 // ══════════════════════════════════════════════════════════════
 // PARSEAR CAMPOS DEL RECIBO TANGO
 // Formato del concepto (cooperadora lo copia desde la tarjeta del dashboard):
-//   Concepto : 11 Cohorte 2025-2026 Julio de 2026 25666258
-//     · 11                → programa_id  (número inicial)
-//     · Cohorte 2025-2026 → nombre de cohorte O edición (texto del medio, se compara con la BD)
-//     · Julio de 2026     → periodo ("Julio de 2026")
-//     · 25666258          → DNI del estudiante (número final)
-//   El nombre del medio NO se exige que diga "cohorte": puede ser una edición
-//   (ej: "Edición 3"). Se toma tal cual y se coteja contra cohortes.nombre.
+//   Concepto : 11 Cohorte 2025-2026 Julio de 2026 25666258 Cobro 6884
+//     · 11                → programa_id  (número inicial)          [VÍA 2 / legible]
+//     · Cohorte 2025-2026 → nombre de cohorte O edición            [VÍA 2 / legible]
+//     · Julio de 2026     → periodo ("Julio de 2026")              [VÍA 2 / legible]
+//     · 25666258          → DNI del estudiante                     [control]
+//     · Cobro 6884        → cobro_id, LLAVE directa e inequívoca   [VÍA 1 — preferida]
+//   VÍA 1: si viene "Cobro <n>", el recibo se asigna por ese id (sin ambigüedad de
+//          período: inscripción y cuota 1 comparten mes). El DNI solo controla (blando).
+//   VÍA 2 (fallback): recibos viejos sin "Cobro <n>" → se resuelve por programa+período+DNI,
+//          excluyendo la Inscripción (que comparte período con la Cuota 1).
 //   NºRecibo : X00004-00009901
 // ══════════════════════════════════════════════════════════════
 
@@ -193,6 +211,7 @@ function _parsearRecibo(texto) {
     cuit_raw:        null,
     dni_normalizado: null,
     concepto_raw:    null,
+    cobro_id:        null,  // LLAVE directa: token "Cobro <n>" de la leyenda (identifica el cobro sin ambigüedad)
     programa_id:     null,  // ej: 11
     cohorte_token:   null,  // texto de cohorte/edición tal como se cargó (ej: "Cohorte 2025-2026")
     periodo_bd:      null   // ej: "Julio de 2026"
@@ -245,6 +264,12 @@ function _parsearRecibo(texto) {
     }
   }
 
+  // Cobro <n> — LLAVE directa e inequívoca (la agrega el sistema al final de la leyenda).
+  // Si está presente, se usa para resolver el cobro por su id, sin depender del período
+  // (que no es único: Inscripción y Cuota 1 comparten mes).
+  var mCobroId = texto.match(/Cobro\s*[:#]?\s*(\d+)\b/i);
+  if (mCobroId) datos.cobro_id = parseInt(mCobroId[1], 10);
+
   return datos;
 }
 
@@ -290,10 +315,14 @@ function _normalizarMes(mes) {
 // ══════════════════════════════════════════════════════════════
 
 function _buscarCobro(dniNorm, programaId, periodoBD, cohorteToken) {
-  // Buscar cobros del programa en ese periodo (sin filtrar por recibo_url para soportar pagos parciales)
+  // Buscar cobros del programa en ese periodo (sin filtrar por recibo_url para soportar pagos parciales).
+  // Se EXCLUYE la Inscripción: comparte período con la Cuota 1 (ambas "Agosto de …"), lo que
+  // producía "MULTIPLE". Un recibo por período apunta a la cuota; la inscripción se paga por
+  // "Cobro <n>" (VÍA 1). Recibos viejos de inscripción quedan para resolución manual.
   var cobros = _sbGet(
     'cobros?select=cobro_id,dni,cohorte_id,cohortes(nombre)' +
     '&programa_id=eq.' + programaId +
+    '&concepto=not.ilike.Inscrip*' +
     '&periodo=ilike.' + encodeURIComponent(periodoBD)
   );
 
@@ -315,6 +344,32 @@ function _buscarCobro(dniNorm, programaId, periodoBD, cohorteToken) {
     if (porNombre.length === 1) return porNombre[0];
   }
   return 'MULTIPLE';
+}
+
+// ══════════════════════════════════════════════════════════════
+// BUSCAR COBRO POR ID (VÍA 1 — llave directa desde "Cobro <n>" de la leyenda)
+// El cobro_id es la PK: identifica UN cobro sin ambigüedad (inscripción, cuota,
+// readmisión o cualquier concepto futuro, con cualquier nombre o numeración).
+// El DNI es un control BLANDO: si no coincide, AVISA pero NO bloquea (el id manda).
+// Retorna: cobro_id (number) | null (no existe ese cobro).
+// ══════════════════════════════════════════════════════════════
+
+function _buscarCobroPorId(cobroId, dniNorm, datos) {
+  var rows = _sbGet('cobros?select=cobro_id,dni&cobro_id=eq.' + encodeURIComponent(cobroId));
+  if (!rows.length) return null;
+  var cobro = rows[0];
+
+  // Chequeo DNI BLANDO: avisa, no descarta.
+  if (dniNorm) {
+    var bdDni = (String(cobro.dni).replace(/^0+/, '') || '0');
+    if (bdDni !== dniNorm) {
+      var aviso = 'DNI del recibo (' + dniNorm + ') no coincide con el del cobro ' +
+                  cobro.cobro_id + ' (' + cobro.dni + '). Se asigna igual por cobro_id.';
+      Logger.log('⚠ ' + aviso);
+      if (datos) datos.aviso_dni = aviso;
+    }
+  }
+  return cobro.cobro_id;
 }
 
 // ══════════════════════════════════════════════════════════════
