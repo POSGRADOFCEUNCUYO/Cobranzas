@@ -15,8 +15,9 @@
  *  · Busca en Gmail emails no procesados del remitente configurado con PDF adjunto
  *  · Lee el texto del PDF (convierte a Google Doc temporario)
  *  · Detecta el tipo de PDF y lo enruta:
- *      – RECIBO  → extrae Nro/CUIT/Concepto, busca la CUOTA (programa+periodo+DNI)
- *                  y la registra en recibos_tango (o recibos_pendientes_tango)
+ *      – RECIBO  → lee la leyenda "Cobro <id> <período> <DNI>" y asigna el recibo al
+ *                  cobro por su id (VÍA 1); registra en recibos_tango (o pendientes).
+ *                  Recibos viejos sin "Cobro <id>" caen a la VÍA 2 (programa+período+DNI).
  *      – FACTURA → extrae el DNI/CUIT/CUIL del ESTUDIANTE, lo busca y guarda la
  *                  factura en la tabla `facturas` (vinculada al estudiante, NO a una cuota)
  *  · Normaliza el DNI: maneja CUIT (XX-XXXXXXXX-X) y ceros a la izquierda
@@ -191,17 +192,16 @@ function _extraerTextoPDF(attachment) {
 
 // ══════════════════════════════════════════════════════════════
 // PARSEAR CAMPOS DEL RECIBO TANGO
-// Formato del concepto (cooperadora lo copia desde la tarjeta del dashboard):
-//   Concepto : 11 Cohorte 2025-2026 Julio de 2026 25666258 Cobro 6884
-//     · 11                → programa_id  (número inicial)          [VÍA 2 / legible]
-//     · Cohorte 2025-2026 → nombre de cohorte O edición            [VÍA 2 / legible]
-//     · Julio de 2026     → periodo ("Julio de 2026")              [VÍA 2 / legible]
-//     · 25666258          → DNI del estudiante                     [control]
-//     · Cobro 6884        → cobro_id, LLAVE directa e inequívoca   [VÍA 1 — preferida]
-//   VÍA 1: si viene "Cobro <n>", el recibo se asigna por ese id (sin ambigüedad de
-//          período: inscripción y cuota 1 comparten mes). El DNI solo controla (blando).
-//   VÍA 2 (fallback): recibos viejos sin "Cobro <n>" → se resuelve por programa+período+DNI,
-//          excluyendo la Inscripción (que comparte período con la Cuota 1).
+// Leyenda ACTUAL (cooperadora la copia desde la tarjeta del dashboard):
+//   Concepto : Cobro 4044 Agosto de 2026 36965305
+//     · Cobro 4044     → cobro_id, LLAVE directa e inequívoca   [VÍA 1 — preferida]
+//     · Agosto de 2026 → período de la cuota                    [legible]
+//     · 36965305       → DNI del estudiante                     [control blando]
+//   VÍA 1: se asigna por el cobro_id (sin ambigüedad de período: inscripción y
+//          cuota 1 comparten mes). El DNI solo controla, no bloquea.
+//   VÍA 2 (fallback): recibos VIEJOS sin "Cobro <n>" (formato "<prog> <cohorte>
+//          <mes> <año> <DNI>") → se resuelve por programa+período+DNI, excluyendo
+//          la Inscripción (que comparte período con la Cuota 1).
 //   NºRecibo : X00004-00009901
 // ══════════════════════════════════════════════════════════════
 
@@ -223,39 +223,57 @@ function _parsearRecibo(texto) {
   var mRec = texto.match(/([A-Z]\d{3,6}[-]\d{5,10})/);
   if (mRec) datos.nro_recibo = mRec[1];
 
-  // Concepto — FORMATO NUEVO: <programa> <cohorte/edición> <mes> [de] <año> <DNI>
-  //   ej: "11 Cohorte 2025-2026 Julio de 2026 25666258"
-  //   El nombre del medio (.+?) es no-codicioso: se corta en el primer mes.
-  var reNuevo = new RegExp(
-    'Concepto\\s*:?\\s*(\\d{1,3})\\s+(.+?)\\s+(' + MESES + ')\\s+(?:de\\s+)?(\\d{4})\\s+(\\d{7,8})\\b', 'i'
+  // ── LEYENDA ACTUAL: "Cobro <id> <mes> [de] <año> <DNI>"
+  //    ej: "Cobro 4044 Agosto de 2026 36965305"
+  //    cobro_id = LLAVE (VÍA 1); período y DNI son legibles / control blando.
+  var reLey = new RegExp(
+    'Cobro\\s*[:#]?\\s*(\\d+)\\s+(' + MESES + ')\\s+(?:de\\s+)?(\\d{4})\\s+([A-Za-z0-9.\\-]{5,20})', 'i'
   );
-  var mConc = texto.match(reNuevo);
-  if (mConc) {
-    datos.concepto_raw    = mConc[0].replace(/\s+/g, ' ').trim();
-    datos.programa_id     = parseInt(mConc[1], 10);
-    datos.cohorte_token   = mConc[2].replace(/\s+/g, ' ').trim();
-    datos.periodo_bd      = _normalizarMes(mConc[3]) + ' de ' + mConc[4];
-    datos.dni_normalizado = _normalizarDni(mConc[5]);
-  } else {
-    // FALLBACK (formato viejo, sin DNI en el concepto): "11 cohorte 2025-2026 septiembre 2026"
-    // Se mantiene por compatibilidad con recibos ya emitidos antes del cambio.
-    var reViejo = new RegExp(
-      'Concepto\\s*:?\\s*(\\d{1,3})\\s+(.+?)\\s+(' + MESES + ')\\s+(?:de\\s+)?(\\d{4})', 'i'
+  var mLey = texto.match(reLey);
+  if (mLey) {
+    datos.cobro_id        = parseInt(mLey[1], 10);
+    datos.periodo_bd      = _normalizarMes(mLey[2]) + ' de ' + mLey[3];
+    datos.concepto_raw    = mLey[0].replace(/\s+/g, ' ').trim();
+    datos.dni_normalizado = _normalizarDni(mLey[4]);
+  }
+
+  // Si la leyenda no vino completa, capturar al menos el token "Cobro <n>" suelto (VÍA 1).
+  if (!datos.cobro_id) {
+    var mCobroId = texto.match(/Cobro\s*[:#]?\s*(\d+)\b/i);
+    if (mCobroId) datos.cobro_id = parseInt(mCobroId[1], 10);
+  }
+
+  // ── FALLBACK (recibos VIEJOS sin "Cobro <n>"): "<prog> <cohorte> <mes> <año> [<DNI>]"
+  //    Se mantiene por compatibilidad con recibos ya emitidos antes del cambio.
+  if (!datos.periodo_bd || !datos.programa_id) {
+    var reNuevo = new RegExp(
+      'Concepto\\s*:?\\s*(\\d{1,3})\\s+(.+?)\\s+(' + MESES + ')\\s+(?:de\\s+)?(\\d{4})\\s+(\\d{7,8})\\b', 'i'
     );
-    var mViejo = texto.match(reViejo);
-    if (mViejo) {
-      datos.concepto_raw  = mViejo[0].replace(/\s+/g, ' ').trim();
-      datos.programa_id   = parseInt(mViejo[1], 10);
-      datos.cohorte_token = mViejo[2].replace(/\s+/g, ' ').trim();
-      datos.periodo_bd    = _normalizarMes(mViejo[3]) + ' de ' + mViejo[4];
+    var mConc = texto.match(reNuevo);
+    if (mConc) {
+      if (!datos.concepto_raw)    datos.concepto_raw    = mConc[0].replace(/\s+/g, ' ').trim();
+      datos.programa_id     = parseInt(mConc[1], 10);
+      datos.cohorte_token   = mConc[2].replace(/\s+/g, ' ').trim();
+      if (!datos.periodo_bd)      datos.periodo_bd      = _normalizarMes(mConc[3]) + ' de ' + mConc[4];
+      if (!datos.dni_normalizado) datos.dni_normalizado = _normalizarDni(mConc[5]);
     } else {
-      // Captura parcial para incluir en el aviso de pendiente
-      var mConc2 = texto.match(/Concepto\s*[:\s]+(.{5,90})/i);
-      if (mConc2) datos.concepto_raw = mConc2[1].trim();
+      var reViejo = new RegExp(
+        'Concepto\\s*:?\\s*(\\d{1,3})\\s+(.+?)\\s+(' + MESES + ')\\s+(?:de\\s+)?(\\d{4})', 'i'
+      );
+      var mViejo = texto.match(reViejo);
+      if (mViejo) {
+        if (!datos.concepto_raw)  datos.concepto_raw  = mViejo[0].replace(/\s+/g, ' ').trim();
+        datos.programa_id   = parseInt(mViejo[1], 10);
+        datos.cohorte_token = mViejo[2].replace(/\s+/g, ' ').trim();
+        if (!datos.periodo_bd)    datos.periodo_bd    = _normalizarMes(mViejo[3]) + ' de ' + mViejo[4];
+      } else if (!datos.concepto_raw) {
+        var mConc2 = texto.match(/Concepto\s*[:\s]+(.{5,90})/i);
+        if (mConc2) datos.concepto_raw = mConc2[1].trim();
+      }
     }
   }
 
-  // DNI: si no vino en el concepto (formato viejo), tomarlo del campo CUIT del cliente.
+  // DNI: si aún no lo tenemos, tomarlo del campo CUIT del cliente.
   if (!datos.dni_normalizado) {
     var mCuit = texto.match(/C\.U\.I\.T\.\s*:?\s*([\d.\-]{7,14})/);
     if (mCuit) {
@@ -263,12 +281,6 @@ function _parsearRecibo(texto) {
       datos.dni_normalizado = _normalizarDni(mCuit[1]);
     }
   }
-
-  // Cobro <n> — LLAVE directa e inequívoca (la agrega el sistema al final de la leyenda).
-  // Si está presente, se usa para resolver el cobro por su id, sin depender del período
-  // (que no es único: Inscripción y Cuota 1 comparten mes).
-  var mCobroId = texto.match(/Cobro\s*[:#]?\s*(\d+)\b/i);
-  if (mCobroId) datos.cobro_id = parseInt(mCobroId[1], 10);
 
   return datos;
 }
