@@ -3128,16 +3128,14 @@
                 : cobroId;
             document.getElementById('aprobModalSub').textContent = sub;
 
-            // Leyenda para el recibo de Tango — formato que parsea la automatización:
-            //   <N° programa> <Cohorte o Edición> <Período> <DNI> Cobro <cobro_id>
-            var _progId = (vistaData && vistaData.programa && vistaData.programa.programaId) ? vistaData.programa.programaId : '';
+            // Leyenda para el recibo de Tango — formato: Cobro <cobro_id> <Período> <DNI>
             var _perLey = (cuota && cuota.mes) ? cuota.mes : '';
             var _dniLey = estudiante ? (estudiante.dni || '') : '';
             var _cobroLey = (cuota && cuota.cobroId) ? cuota.cobroId : cobroId;
-            var leyendaRecibo = [_progId, _cohTxt, _perLey, _dniLey].filter(function(x) {
+            var leyendaRecibo = [(_cobroLey ? 'Cobro ' + _cobroLey : ''), _perLey, _dniLey].filter(function(x) {
                 var s = (x == null ? '' : String(x)).trim();
                 return s !== '' && s !== '—';
-            }).join(' ') + (_cobroLey ? ' Cobro ' + _cobroLey : '');
+            }).join(' ');
             document.getElementById('apLeyendaRecibo').innerHTML =
                 '<div class="leyenda-recibo">'
                 + '<div class="leyenda-label">&#x1F9FE; Leyenda para el recibo</div>'
