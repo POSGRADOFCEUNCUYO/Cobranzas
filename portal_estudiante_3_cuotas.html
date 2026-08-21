@@ -291,7 +291,7 @@
         </div>
 
         <div class="form-group">
-            <label class="form-label" for="inputNroOp">N° de operación / referencia <span class="req">*</span></label>
+            <label class="form-label" for="inputNroOp">N° de operación / referencia <span style="color:#aaa;font-weight:400;">(opcional)</span></label>
             <input type="text" class="form-input" id="inputNroOp" placeholder="Ej: 123456789" aria-label="Número de operación o referencia">
         </div>
 
@@ -865,7 +865,7 @@ async function enviarComprobante() {
     var obs         = document.getElementById('inputObs').value.trim();
 
     if (!_fileActual)          { toast('⚠️ Adjuntá el comprobante de transferencia', 'err'); return; }
-    if (!nroOp)                { toast('⚠️ Ingresá el número de operación', 'err'); return; }
+    // N° de operación / referencia: OPCIONAL (quien no lo tenga igual puede pagar).
     if (!monto || +monto <= 0) { toast('⚠️ Ingresá el monto transferido', 'err'); return; }
 
     // Aviso (no bloqueante): si el monto declarado supera el saldo pendiente de
