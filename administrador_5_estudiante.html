@@ -198,6 +198,9 @@
     <!-- Input oculto para subir comprobante de una cuota -->
     <input type="file" id="comp-file-input" accept=".pdf,.jpg,.jpeg,.png,.webp" style="display:none;" onchange="onComprobanteFile(this)">
 
+    <!-- Input oculto para subir recibo de una cuota (solo administrador) -->
+    <input type="file" id="recibo-file-input" accept=".pdf,.jpg,.jpeg,.png,.webp" style="display:none;" onchange="onReciboFile(this)">
+
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -359,6 +362,10 @@ function renderCobros(cobros) {
         if (estado !== 'NO_APLICA' && estado !== 'A_DEFINIR') {
             docs += '<button class="btn-action btn-subir" onclick="pickComprobante(\''+c.cobro_id+'\')">➕ Agregar comp.</button> ';
         }
+        // Recibo: solo el administrador lo carga, y solo en cuotas ya cobradas (abonada / pago parcial).
+        if (estado === 'ABONADA' || estado === 'PAGO_PARCIAL') {
+            docs += '<button class="btn-action btn-recibo" onclick="pickRecibo(\''+c.cobro_id+'\')">➕ Agregar recibo</button> ';
+        }
 
         var vence = c.fecha_vencimiento ? c.fecha_vencimiento.split('-').reverse().join('/') : '—';
         return '<tr>'
@@ -442,6 +449,52 @@ async function onComprobanteFile(inp) {
     } finally {
         spin(false);
         _compCobroId = null;
+    }
+}
+
+/* ── SUBIR RECIBO (solo administrador) ──
+   Adjunta un recibo a una cuota ya cobrada. Se registra en recibos_tango (para que
+   lo vean todos los roles como "🧾 Recibo") y en cobros.recibo_url. NO cambia el estado. */
+var _reciboCobroId = null;
+function pickRecibo(cobroId) {
+    _reciboCobroId = cobroId;
+    document.getElementById('recibo-file-input').click();
+}
+async function onReciboFile(inp) {
+    var file = inp.files && inp.files[0];
+    inp.value = '';
+    if (!file || !_reciboCobroId) return;
+    var cobroId = _reciboCobroId;
+    spin(true);
+    try {
+        var sb = await getSupabase();
+        // Subida al mismo bucket "comprobantes" (RLS permite a cualquier autenticado subir).
+        var safeName = file.name.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9._-]/g, '_');
+        var path = DNI + '/recibo_' + Date.now() + '_' + safeName;
+        var up = await sb.storage.from('comprobantes').upload(path, file);
+        if (up.error) throw new Error(up.error.message);
+        var url = sb.storage.from('comprobantes').getPublicUrl(path).data.publicUrl;
+
+        // Registrar el recibo (aparece como "🧾 Recibo" en todos los roles) SIN cambiar el estado.
+        var ins = await sb.from('recibos_tango').insert({
+            cobro_id: cobroId,
+            pdf_url: url,
+            tango_datos_json: { origen: 'carga_manual_admin', subido_por: DNI, archivo: file.name }
+        });
+        if (ins.error) throw new Error(ins.error.message);
+
+        // Guardar también en cobros.recibo_url (lo usan reportes y algunas vistas).
+        var w = await sb.from('cobros').update({ recibo_url: url }).eq('cobro_id', cobroId);
+        if (w.error) throw new Error(w.error.message);
+
+        toast('✅ Recibo agregado.', 'ok');
+        await cargar();
+    } catch(e) {
+        console.error('Error al subir recibo:', e);
+        toast('❌ No se pudo subir el recibo: ' + (e.message || e), 'err');
+    } finally {
+        spin(false);
+        _reciboCobroId = null;
     }
 }
 </script>
