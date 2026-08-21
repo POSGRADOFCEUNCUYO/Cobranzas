@@ -806,11 +806,12 @@
             var programaEsc = programaCohorte.replace(/'/g, "\\'")
             var infoLinea = 'DNI: ' + dni + (programaId ? ' · Prog. ' + programaId : '') + ' - ' + programaEsc;
             // Leyenda para el recibo de Tango — formato exacto que parsea la automatización:
-            //   <N° programa> <Cohorte o Edición> <Período> <DNI>   ej: "11 Cohorte 2025-2026 Julio de 2026 25666258"
+            //   <N° programa> <Cohorte o Edición> <Período> <DNI> Cobro <cobro_id>
+            //   ej: "11 Cohorte 2025-2026 Julio de 2026 25666258 Cobro 6884"
             var leyendaRecibo = [programaId, cohorte, c.periodo, dni].filter(function(x) {
                 var s = (x == null ? '' : String(x)).trim();
                 return s !== '' && s !== '—';
-            }).join(' ');
+            }).join(' ') + (c.cobro_id ? ' Cobro ' + c.cobro_id : '');
             var modalCall = "abrirModal({nombre:'" + nombreEsc + "',info:'" + infoLinea + "',cuota:'" + cuotaLabel + "',monto:'" + monto + "',vencimiento:'" + vencimiento + "',estado:'" + estadoLabel + "',archivo:'" + archivoNombre + "',url:'" + archivoUrl + "'})";
 
             return '<div class="comprobante-card' + (esReciente ? ' new' : '') + '">'

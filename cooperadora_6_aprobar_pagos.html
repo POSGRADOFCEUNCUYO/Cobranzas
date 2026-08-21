@@ -464,12 +464,13 @@
             var declaradoSub = esParcialRow
                 ? ' · <span style="color:#d68910;font-weight:600;">Parcial declarado: ' + fMillones(mtRow) + ' de ' + fMillones(c.monto_final) + '</span>'
                 : '';
-            // Leyenda para el recibo de Tango — formato: <N° programa> <Cohorte> <Período> <DNI>
+            // Leyenda para el recibo de Tango — formato: <N° programa> <Cohorte> <Período> <DNI> Cobro <cobro_id>
+            // El "Cobro <id>" es la llave que usa la automatización para asignar el recibo sin ambigüedad.
             var _cohNom = (c.cohortes && c.cohortes.nombre) ? c.cohortes.nombre : '';
             var leyendaRecibo = [c.programa_id, _cohNom, c.periodo, c.dni].filter(function(x) {
                 var s = (x == null ? '' : String(x)).trim();
                 return s !== '' && s !== '—';
-            }).join(' ');
+            }).join(' ') + (c.cobro_id ? ' Cobro ' + c.cobro_id : '');
             var leyendaHtml = '<div class="leyenda-recibo" style="margin-top:10px;" onclick="event.stopPropagation()">'
                 + '<div class="leyenda-label">&#x1F9FE; Leyenda para el recibo</div>'
                 + '<div class="leyenda-row">'
@@ -513,11 +514,11 @@
         document.getElementById('modal-nombre').textContent = nombreMostrado;
         var _cohNombre = (c.cohortes && c.cohortes.nombre) ? c.cohortes.nombre : '';
         // Leyenda para el recibo de Tango — formato que parsea la automatización:
-        //   <N° programa> <Cohorte o Edición> <Período> <DNI>
+        //   <N° programa> <Cohorte o Edición> <Período> <DNI> Cobro <cobro_id>
         var leyendaRecibo = [c.programa_id, _cohNombre, c.periodo, c.dni].filter(function(x) {
             var s = (x == null ? '' : String(x)).trim();
             return s !== '' && s !== '—';
-        }).join(' ');
+        }).join(' ') + (c.cobro_id ? ' Cobro ' + c.cobro_id : '');
         document.getElementById('modal-sub').innerHTML =
             '<div class="leyenda-recibo">'
             + '<div class="leyenda-label">&#x1F9FE; Leyenda para el recibo</div>'
