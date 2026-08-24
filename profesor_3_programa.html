@@ -160,9 +160,9 @@ async function cargar(sesion) {
     // monto definido y no pagadas). Excluye "A definir" (sin monto) y "No aplica", solo ARS.
     var proyMap = {};
     try {
-        var _rc = await sb.from('cobros')
+        var _rc = await sbFetchAll(function(){ return sb.from('cobros')
             .select('cohorte_id,monto_final,monto_abonado,saldo_pendiente,no_aplica,moneda')
-            .eq('programa_id', pidNum);
+            .eq('programa_id', pidNum).order('cobro_id'); });
         (_rc.data || []).forEach(function(c) {
             if (c.no_aplica === true) return;          // No aplica
             if (c.monto_final == null) return;         // A definir (sin monto)
