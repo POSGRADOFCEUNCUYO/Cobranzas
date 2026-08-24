@@ -183,15 +183,18 @@ async function cargar(sesion) {
     var cohIds = _cohortes.map(function(c){ return c.cohorte_id; });
 
     // Round 2: cobros, egresos e inscripciones filtrados por las cohortes del profesor
+    // sbFetchAll pagina de a 1000: sin esto, un profesor con muchas cohortes supera el tope
+    // de filas de la API y se pierden cuotas enteras (recaudado quedaba en $0 para la
+    // cohorte que caía afuera). El .order() hace la paginación determinística.
     var [cobRes, egrRes, inscRes] = await Promise.all([
         cohIds.length
-            ? sb.from('cobros').select('dni,cohorte_id,programa_id,estado,monto_abonado,monto_final,saldo_pendiente,moneda,no_aplica,fecha_vencimiento,recibo_url,comprobante_url').in('cohorte_id', cohIds)
+            ? sbFetchAll(function(){ return sb.from('cobros').select('dni,cohorte_id,programa_id,estado,monto_abonado,monto_final,saldo_pendiente,moneda,no_aplica,fecha_vencimiento,recibo_url,comprobante_url').in('cohorte_id', cohIds).order('cobro_id'); })
             : Promise.resolve({data:[]}),
         cohIds.length
-            ? sb.from('egresos').select('cohorte_id,programa_id,tipo,monto_pagado,monto_original,moneda').in('cohorte_id', cohIds)
+            ? sbFetchAll(function(){ return sb.from('egresos').select('cohorte_id,programa_id,tipo,monto_pagado,monto_original,moneda').in('cohorte_id', cohIds).order('egreso_id'); })
             : Promise.resolve({data:[]}),
         cohIds.length
-            ? sb.from('inscripciones').select('estudiante_id,cohorte_id,estado_academico').in('cohorte_id', cohIds)
+            ? sbFetchAll(function(){ return sb.from('inscripciones').select('estudiante_id,cohorte_id,estado_academico').in('cohorte_id', cohIds).order('id'); })
             : Promise.resolve({data:[]})
     ]);
 
