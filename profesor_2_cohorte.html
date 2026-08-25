@@ -102,6 +102,7 @@
         <div class="stat-card"><div class="stat-label">Estudiantes</div><div class="stat-value" id="s-est">—</div></div>
         <div class="stat-card success"><div class="stat-label">Al Día</div><div class="stat-value success" id="s-aldia">—</div></div>
         <div class="stat-card danger"><div class="stat-label">En Mora</div><div class="stat-value danger" id="s-mora">—</div></div>
+        <div class="stat-card"><div class="stat-label">Canceló Carrera</div><div class="stat-value" id="s-cancelo">—</div></div>
         <div class="stat-card info"><div class="stat-label">Recaudado</div><div class="stat-value info" id="s-rec">—</div></div>
         <div class="stat-card warning"><div class="stat-label">Egresos</div><div class="stat-value warning" id="s-egr">—</div></div>
         <div class="stat-card"><div class="stat-label">Saldo</div><div class="stat-value" id="s-saldo">—</div></div>
@@ -224,12 +225,9 @@ async function cargar(sesion, cohorteId) {
     // Stats
     var totalEst = new Set(insc.map(function(i){ return i.estudiante_id; })).size;
     var dnisConMora = new Set(cobros.filter(function(c){ return c._re==='EN_MORA'; }).map(function(c){ return c.dni; }));
-    var alDiaCount = dnis.filter(function(dni) {
-        var cobs = porDni[dni] || [];
-        if (cobs.some(function(c){ return c._re==='EN_MORA'; })) return false;
-        var deuda = cobs.reduce(function(s,c){ if(c._re==='ABONADA') return s; return s+Number(c.saldo_pendiente||c.monto_final||0); }, 0);
-        return deuda === 0;
-    }).length;
+    // Conteos por estado global (misma clasificación que la tabla)
+    var alDiaCount   = dnis.filter(function(dni){ return clasificarEstudiante(porDni[dni]||[]).estado === 'AL_DIA';  }).length;
+    var canceloCount = dnis.filter(function(dni){ return clasificarEstudiante(porDni[dni]||[]).estado === 'CANCELO'; }).length;
     // Stats financieros desde RPC (fuente única de verdad, sin divergencia entre roles)
     var stRes = await sb.rpc('stats_cohorte', { p_cohorte_id: cohorteId });
     var st = stRes.data || {};
@@ -240,6 +238,7 @@ async function cargar(sesion, cohorteId) {
     document.getElementById('s-est').textContent   = totalEst;
     document.getElementById('s-aldia').textContent = alDiaCount;
     document.getElementById('s-mora').textContent  = dnisConMora.size;
+    document.getElementById('s-cancelo').textContent = canceloCount;
     document.getElementById('s-rec').textContent   = fM(recaudado) + (st.ingresos_usd > 0 ? ' + U$S ' + Number(st.ingresos_usd).toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '');
     document.getElementById('s-egr').textContent   = fM(egrExecArs) + (st.egresos_usd > 0 ? ' + U$S ' + Number(st.egresos_usd).toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '');
     var sEl = document.getElementById('s-saldo');
