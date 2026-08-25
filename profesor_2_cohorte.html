@@ -52,6 +52,7 @@
         .badge-abonada    { background:#d1fae5; color:#065f46; }
         .badge-mora       { background:#fee2e2; color:#991b1b; }
         .badge-pendiente  { background:#fef3c7; color:#92400e; }
+        .badge-cancelo    { background:#dbeafe; color:#1e40af; }
         .badge-parcial    { background:#dbeafe; color:#1e40af; }
         .badge-no-aplica  { background:#f3f4f6; color:#6b7280; }
         .badge-a-definir  { background:#f3f4f6; color:#6b7280; }
@@ -112,9 +113,10 @@
         <div class="filters">
             <span class="filter-label">Estado:</span>
             <button class="filter-btn active" data-filtro="TODOS" onclick="filtrar(this)">Todos</button>
-            <button class="filter-btn" data-filtro="AL_DIA"     onclick="filtrar(this)">Al día</button>
-            <button class="filter-btn" data-filtro="EN_MORA"    onclick="filtrar(this)">En mora</button>
-            <button class="filter-btn" data-filtro="PENDIENTE"  onclick="filtrar(this)">Pendiente</button>
+            <button class="filter-btn" data-filtro="AL_DIA"        onclick="filtrar(this)">Al día</button>
+            <button class="filter-btn" data-filtro="MES_POR_PAGAR" onclick="filtrar(this)">Cuota del mes por pagar</button>
+            <button class="filter-btn" data-filtro="EN_MORA"       onclick="filtrar(this)">En mora</button>
+            <button class="filter-btn" data-filtro="CANCELO"       onclick="filtrar(this)">Canceló carrera</button>
             <input class="search-input" id="searchInput" placeholder="Buscar por nombre o DNI…" oninput="renderTabla()">
         </div>
         <div id="tablaWrap"><div class="loading">Cargando…</div></div>
@@ -236,7 +238,24 @@ async function cargar(sesion, cohorteId) {
             return s + Number(c.saldo_pendiente||c.monto_final||0);
         }, 0);
         var pagado = cobs.reduce(function(s,c){ return s+calcMontoAbonado(c); },0);
-        var estadoGlobal = tieneMora ? 'EN_MORA' : (deuda > 0 ? 'PENDIENTE' : 'AL_DIA');
+        // Estado global (4 categorías, en orden de prioridad):
+        //  EN_MORA       → tiene alguna cuota vencida e impaga
+        //  CANCELO       → canceló la carrera: TODAS las cuotas Abonada o No aplica (ninguna A definir ni con saldo)
+        //  AL_DIA        → sin mora, pagó la cuota del mes en curso (o este mes no hay cuota con monto)
+        //  MES_POR_PAGAR → sin mora, la cuota del mes en curso todavía no está paga (aún en plazo)
+        var _mesActual = mesKey(hoy());
+        var estadoGlobal;
+        if (tieneMora) {
+            estadoGlobal = 'EN_MORA';
+        } else if (cobs.length && cobs.every(function(c){ return c._re==='ABONADA' || c._re==='NO_APLICA'; })) {
+            estadoGlobal = 'CANCELO';
+        } else {
+            var _mesAPagar = cobs.filter(function(c){
+                return mesKey(c.fecha_vencimiento) === _mesActual && c._re !== 'A_DEFINIR' && c._re !== 'NO_APLICA';
+            });
+            var _mesPago = _mesAPagar.every(function(c){ return c._re==='ABONADA'; });
+            estadoGlobal = _mesPago ? 'AL_DIA' : 'MES_POR_PAGAR';
+        }
         return { dni: dni, nombre: usu.nombre||'—', apellido: usu.apellido||'—', estadoGlobal: estadoGlobal, deuda: deuda, pagado: pagado, cobros: cobs };
     });
 
@@ -255,9 +274,10 @@ function filtrar(btn) {
 function renderTabla() {
     var busqueda = (document.getElementById('searchInput').value || '').toLowerCase();
     var lista = _estudiantes.filter(function(e) {
-        if (_filtroEstado === 'AL_DIA'    && e.estadoGlobal !== 'AL_DIA')    return false;
-        if (_filtroEstado === 'EN_MORA'   && e.estadoGlobal !== 'EN_MORA')   return false;
-        if (_filtroEstado === 'PENDIENTE' && e.estadoGlobal !== 'PENDIENTE') return false;
+        if (_filtroEstado === 'AL_DIA'        && e.estadoGlobal !== 'AL_DIA')        return false;
+        if (_filtroEstado === 'MES_POR_PAGAR' && e.estadoGlobal !== 'MES_POR_PAGAR') return false;
+        if (_filtroEstado === 'EN_MORA'       && e.estadoGlobal !== 'EN_MORA')       return false;
+        if (_filtroEstado === 'CANCELO'       && e.estadoGlobal !== 'CANCELO')       return false;
         if (busqueda && !(e.dni+e.nombre+e.apellido).toLowerCase().includes(busqueda)) return false;
         return true;
     });
@@ -275,8 +295,14 @@ function renderTabla() {
     }
 
     var rows = slice.map(function(e) {
-        var badgeCls = e.estadoGlobal==='EN_MORA' ? 'badge-mora' : (e.estadoGlobal==='AL_DIA' ? 'badge-abonada' : 'badge-pendiente');
-        var badgeTxt = e.estadoGlobal==='EN_MORA' ? 'En mora' : (e.estadoGlobal==='AL_DIA' ? 'Al día' : 'Pendiente');
+        var _badgeMap = {
+            EN_MORA:       ['badge-mora',      'En mora'],
+            AL_DIA:        ['badge-abonada',   'Al día'],
+            MES_POR_PAGAR: ['badge-pendiente', 'Cuota del mes por pagar'],
+            CANCELO:       ['badge-cancelo',   'Canceló carrera']
+        };
+        var _bm = _badgeMap[e.estadoGlobal] || ['badge-pendiente', e.estadoGlobal];
+        var badgeCls = _bm[0], badgeTxt = _bm[1];
         var deudaHtml = e.deuda > 0 ? '<span class="monto text-danger">' + fM(e.deuda) + '</span>' : '<span class="text-muted">—</span>';
         return '<tr>' +
             '<td>' + esc(e.apellido) + ', ' + esc(e.nombre) + '</td>' +
