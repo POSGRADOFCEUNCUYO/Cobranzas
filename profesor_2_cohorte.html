@@ -27,13 +27,13 @@
         .notif-head { padding:14px 16px; border-bottom:1px solid #f0f0f0; font-weight:700; color:#5C1018; font-size:14px; display:flex; justify-content:space-between; align-items:center; gap:12px; }
         .notif-head button { background:none; border:none; color:#8C1A28; font-size:12px; font-weight:700; cursor:pointer; font-family:'DM Sans',sans-serif; }
         .container { max-width:1200px; margin:32px auto; padding: 0 24px; }
-        .stats-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:18px; margin-bottom:28px; }
+        .stats-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:18px; margin-bottom:28px; }
         @media(max-width:900px){ .stats-grid{ grid-template-columns:repeat(3,1fr); } }
         @media(max-width:580px){ .stats-grid{ grid-template-columns:repeat(2,1fr); } .header,.container{ padding-left:16px; padding-right:16px; } }
         .stat-card { background:white; padding:20px 18px; border-radius:12px; box-shadow:0 2px 10px rgba(0,0,0,.06); border-left:4px solid var(--accent); }
         .stat-card.success{ border-left-color:var(--success); } .stat-card.danger{ border-left-color:var(--danger); } .stat-card.warning{ border-left-color:var(--warning); } .stat-card.info{ border-left-color:#4338ca; }
         .stat-label { font-size:11px; color:#888; text-transform:uppercase; letter-spacing:.5px; margin-bottom:5px; }
-        .stat-value { font-size:26px; font-weight:700; color:var(--primary); }
+        .stat-value { font-size:22px; font-weight:700; color:var(--primary); overflow-wrap:anywhere; line-height:1.15; }
         .stat-value.success{ color:var(--success); } .stat-value.danger{ color:var(--danger); } .stat-value.warning{ color:var(--warning); } .stat-value.info{ color:#4338ca; }
         .card { background:white; border-radius:12px; padding:24px 28px; box-shadow:0 2px 10px rgba(0,0,0,.06); margin-bottom:24px; }
         .card-title { font-family:'Crimson Pro',serif; font-size:20px; color:var(--primary); margin-bottom:18px; padding-bottom:10px; border-bottom:2px solid var(--line); }
@@ -103,6 +103,7 @@
         <div class="stat-card success"><div class="stat-label">Al Día</div><div class="stat-value success" id="s-aldia">—</div></div>
         <div class="stat-card danger"><div class="stat-label">En Mora</div><div class="stat-value danger" id="s-mora">—</div></div>
         <div class="stat-card"><div class="stat-label">Canceló Carrera</div><div class="stat-value" id="s-cancelo">—</div></div>
+        <div class="stat-card" style="border-left-color:#0369a1"><div class="stat-label">Ingresos Proyectados</div><div class="stat-value" id="s-proy" style="color:#0369a1">—</div></div>
         <div class="stat-card info"><div class="stat-label">Recaudado</div><div class="stat-value info" id="s-rec">—</div></div>
         <div class="stat-card warning"><div class="stat-label">Egresos</div><div class="stat-value warning" id="s-egr">—</div></div>
         <div class="stat-card"><div class="stat-label">Saldo</div><div class="stat-value" id="s-saldo">—</div></div>
@@ -234,11 +235,23 @@ async function cargar(sesion, cohorteId) {
     var recaudado = st.ingresos_ars != null ? Number(st.ingresos_ars) : cobros.reduce(function(s,c){ return s+calcMontoAbonado(c); },0);
     var egrExecArs = st.egresos_ars != null ? Number(st.egresos_ars) : 0;
     var saldo = recaudado - egrExecArs;
+    // Ingresos proyectados = lo que todavía falta cobrar (saldo de cuotas con monto definido,
+    // no pagadas, solo ARS). Excluye "A definir" (sin monto) y "No aplica". Misma fórmula que la pantalla de programa.
+    var proyectado = cobros.reduce(function(s,c){
+        if (c.no_aplica === true) return s;
+        if (c.monto_final == null) return s;
+        if ((c.moneda || 'ARS') === 'USD') return s;
+        var abonado = (c.monto_abonado != null && Number(c.monto_abonado) > 0)
+            ? Number(c.monto_abonado)
+            : Math.max(0, Number(c.monto_final || 0) - Number(c.saldo_pendiente || 0));
+        return s + Math.max(0, Number(c.monto_final || 0) - abonado);
+    }, 0);
 
     document.getElementById('s-est').textContent   = totalEst;
     document.getElementById('s-aldia').textContent = alDiaCount;
     document.getElementById('s-mora').textContent  = dnisConMora.size;
     document.getElementById('s-cancelo').textContent = canceloCount;
+    document.getElementById('s-proy').textContent   = fM(proyectado);
     document.getElementById('s-rec').textContent   = fM(recaudado) + (st.ingresos_usd > 0 ? ' + U$S ' + Number(st.ingresos_usd).toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '');
     document.getElementById('s-egr').textContent   = fM(egrExecArs) + (st.egresos_usd > 0 ? ' + U$S ' + Number(st.egresos_usd).toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '');
     var sEl = document.getElementById('s-saldo');
