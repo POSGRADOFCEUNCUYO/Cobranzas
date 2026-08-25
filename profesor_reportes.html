@@ -200,6 +200,14 @@
                     </label>
                 </div>
             </div>
+            <div class="field">
+                <label for="selDesde">Desde</label>
+                <input type="date" id="selDesde" style="width:150px;" onkeydown="if(event.key==='Enter') cargarVista()">
+            </div>
+            <div class="field">
+                <label for="selHasta">Hasta</label>
+                <input type="date" id="selHasta" style="width:150px;" onkeydown="if(event.key==='Enter') cargarVista()">
+            </div>
         </div>
         <button class="btn-filter" type="button" onclick="cargarVista()">Actualizar reportes</button>
     </div>
@@ -263,6 +271,46 @@ function toggleTodosAnios(cb) {
     var selAnio = document.getElementById('selAnio');
     selAnio.disabled = cb.checked;
     selAnio.style.opacity = cb.checked ? '0.4' : '1';
+    // "Toda la cohorte" ignora también el rango de fechas
+    ['selDesde','selHasta'].forEach(function(id){
+        var el = document.getElementById(id);
+        if (el) { el.disabled = cb.checked; el.style.opacity = cb.checked ? '0.4' : '1'; }
+    });
+}
+
+// Estado actual del filtro temporal (rango de fechas o año). Lee el DOM.
+function _leerFiltroFecha() {
+    var todos = document.getElementById('todosAnios');
+    var todosChecked = !!(todos && todos.checked);
+    var elD = document.getElementById('selDesde'), elH = document.getElementById('selHasta'), elA = document.getElementById('selAnio');
+    var desde = (elD && elD.value) || '';
+    var hasta = (elH && elH.value) || '';
+    var anio  = todosChecked ? '' : ((elA && elA.value) || DEFAULT_ANIO);
+    return { todos: todosChecked, usaRango: !todosChecked && !!(desde || hasta), desde: desde, hasta: hasta, anio: anio };
+}
+
+// ¿La fecha (ISO 'YYYY-MM-DD…') pasa el filtro temporal? Sin fecha no se excluye (igual que el filtro de año previo).
+function _pasaFiltroFecha(fecha, ff) {
+    if (ff.todos) return true;
+    if (ff.usaRango) {
+        if (!fecha) return true;
+        var f = String(fecha).substring(0, 10);
+        if (ff.desde && f < ff.desde) return false;
+        if (ff.hasta && f > ff.hasta) return false;
+        return true;
+    }
+    if (ff.anio) return !fecha || String(fecha).startsWith(ff.anio);
+    return true;
+}
+
+// Etiqueta legible del período activo (para los títulos de las tarjetas).
+function _etiquetaPeriodo(ff) {
+    if (ff.todos) return 'Toda la cohorte';
+    if (ff.usaRango) {
+        var dmy = function(iso){ var p = String(iso).substring(0,10).split('-'); return p.length===3 ? (p[2]+'/'+p[1]+'/'+p[0]) : iso; };
+        return (ff.desde ? dmy(ff.desde) : '…') + ' a ' + (ff.hasta ? dmy(ff.hasta) : '…');
+    }
+    return ff.anio || 'Toda la cohorte';
 }
 
 // toast: usa la versión global de supabase.js
@@ -317,6 +365,8 @@ async function cargarVista() {
         var filtCohorte  = document.getElementById('selCohorte').value;
         var todosAnios   = document.getElementById('todosAnios');
         var filtAnio     = (todosAnios && todosAnios.checked) ? '' : (document.getElementById('selAnio').value || DEFAULT_ANIO);
+        var ff             = _leerFiltroFecha();              // rango de fechas o año
+        var etiquetaPeriodo = _etiquetaPeriodo(ff);           // texto para los títulos
 
         // Cohortes visibles: programas completos Y/O cohortes específicas
         var cohQueries = [];
@@ -372,18 +422,16 @@ async function cargarVista() {
         var cobF = _cobrosExport.filter(function(c){
             if (filtPrograma && String(c.programa_id) !== String(filtPrograma)) return false;
             if (filtCohorte  && String(c.cohorte_id)  !== String(filtCohorte))  return false;
-            if (filtAnio) {
-                var isPaid = c._re === 'ABONADA' || c._re === 'PAGO_PARCIAL';
-                var fechaFiltro = isPaid ? (c.fecha_pago || c.fecha_vencimiento) : c.fecha_vencimiento;
-                if (fechaFiltro && !fechaFiltro.startsWith(filtAnio)) return false;
-            }
+            var isPaid = c._re === 'ABONADA' || c._re === 'PAGO_PARCIAL';
+            var fechaFiltro = isPaid ? (c.fecha_pago || c.fecha_vencimiento) : c.fecha_vencimiento;
+            if (!_pasaFiltroFecha(fechaFiltro, ff)) return false;
             return true;
         });
         var egrF = _egresosExport.filter(function(e){
             if (filtPrograma && String(e.programa_id) !== String(filtPrograma)) return false;
             if (filtCohorte  && String(e.cohorte_id)  !== String(filtCohorte))  return false;
             var fecha = e.fecha_pago || e.fecha_estimada || '';
-            if (filtAnio && fecha && !fecha.startsWith(filtAnio)) return false;
+            if (!_pasaFiltroFecha(fecha, ff)) return false;
             return true;
         });
 
@@ -407,9 +455,9 @@ async function cargarVista() {
         var saldo    = recaudadoArs - egresos;
 
         document.getElementById('summaryGrid').innerHTML =
-            '<div class="summary-item"><div class="summary-label">Total Recaudado ' + filtAnio + '</div><div class="summary-value">' + fMontoDual(recaudadoArs, recaudadoUsd) + '</div></div>' +
-            '<div class="summary-item rojo"><div class="summary-label">Egresos Ejecutados ' + filtAnio + '</div><div class="summary-value rojo">' + fM(egresos) + '</div></div>' +
-            '<div class="summary-item ' + (saldo >= 0 ? 'verde' : 'rojo') + '"><div class="summary-label">Saldo ' + filtAnio + (recaudadoUsd>0?' (ARS)':'') + '</div><div class="summary-value ' + (saldo >= 0 ? 'verde' : 'rojo') + '">' + fM(saldo) + '</div></div>' +
+            '<div class="summary-item"><div class="summary-label">Total Recaudado ' + etiquetaPeriodo + '</div><div class="summary-value">' + fMontoDual(recaudadoArs, recaudadoUsd) + '</div></div>' +
+            '<div class="summary-item rojo"><div class="summary-label">Egresos Ejecutados ' + etiquetaPeriodo + '</div><div class="summary-value rojo">' + fM(egresos) + '</div></div>' +
+            '<div class="summary-item ' + (saldo >= 0 ? 'verde' : 'rojo') + '"><div class="summary-label">Saldo ' + etiquetaPeriodo + (recaudadoUsd>0?' (ARS)':'') + '</div><div class="summary-value ' + (saldo >= 0 ? 'verde' : 'rojo') + '">' + fM(saldo) + '</div></div>' +
             '<div class="summary-item verde"><div class="summary-label">Estudiantes al Día</div><div class="summary-value verde">' + dnisAlDia.size + '</div></div>' +
             '<div class="summary-item rojo"><div class="summary-label">En Mora</div><div class="summary-value rojo">' + dnisEnMora.size + '</div></div>' +
             '<div class="summary-item naranja"><div class="summary-label">Tasa de Pago</div><div class="summary-value">' + tasaPago + '%</div></div>';
@@ -465,7 +513,7 @@ async function cargarVista() {
         // Encabezado subtitle
         var progNombre = (_programas.find(function(p){ return String(p.programa_id)===String(filtPrograma); }) || _programas[0] || {}).nombre || 'Mis programas';
         var cohNombre  = filtCohorte ? ((cohortesF[0] || {}).nombre || 'Cohorte') : 'Todas las cohortes';
-        document.getElementById('headerSubtitle').textContent = progNombre + ' • ' + cohNombre + ' • ' + filtAnio;
+        document.getElementById('headerSubtitle').textContent = progNombre + ' • ' + cohNombre + ' • ' + etiquetaPeriodo;
 
         // Renderizar gráficos
         destroyCharts();
@@ -603,6 +651,7 @@ function exportar(tipo) {
     var filtCohorte   = document.getElementById('selCohorte').value;
     var todosAniosChk = document.getElementById('todosAnios');
     var filtAnio      = (todosAniosChk && todosAniosChk.checked) ? '' : document.getElementById('selAnio').value;
+    var ff            = _leerFiltroFecha();
 
     try {
         if (tipo === 'resumen') {
@@ -643,7 +692,9 @@ function exportar(tipo) {
             var cobF = _cobrosExport.filter(function(c){
                 if (filtPrograma && String(c.programa_id)!==String(filtPrograma)) return false;
                 if (filtCohorte  && String(c.cohorte_id) !==String(filtCohorte))  return false;
-                if (filtAnio && c.fecha_vencimiento && !c.fecha_vencimiento.startsWith(filtAnio)) return false;
+                var isPaid = c._re === 'ABONADA' || c._re === 'PAGO_PARCIAL';
+                var fechaFiltro = isPaid ? (c.fecha_pago || c.fecha_vencimiento) : c.fecha_vencimiento;
+                if (!_pasaFiltroFecha(fechaFiltro, ff)) return false;
                 return true;
             });
             if (!cobF.length) { toast('Sin datos para exportar.', 'err'); return; }
