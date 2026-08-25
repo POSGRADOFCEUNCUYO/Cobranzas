@@ -235,9 +235,10 @@ async function cargar(sesion, cohorteId) {
     var recaudado = st.ingresos_ars != null ? Number(st.ingresos_ars) : cobros.reduce(function(s,c){ return s+calcMontoAbonado(c); },0);
     var egrExecArs = st.egresos_ars != null ? Number(st.egresos_ars) : 0;
     var saldo = recaudado - egrExecArs;
-    // Ingresos proyectados = lo que todavía falta cobrar (saldo de cuotas con monto definido,
-    // no pagadas, solo ARS). Excluye "A definir" (sin monto) y "No aplica". Misma fórmula que la pantalla de programa.
-    var proyectado = cobros.reduce(function(s,c){
+    // Ingresos proyectados: lo que falta cobrar a valor NOMINAL (base con descuento, SIN recargo de
+    // mora) y solo de estudiantes ACTIVOS (excluye bajas). Fuente de verdad: RPC stats_cohorte,
+    // igual que "Recaudado". Fallback al cálculo local si la RPC no lo devuelve.
+    var proyectado = st.ingresos_proyectados != null ? Number(st.ingresos_proyectados) : cobros.reduce(function(s,c){
         if (c.no_aplica === true) return s;
         if (c.monto_final == null) return s;
         if ((c.moneda || 'ARS') === 'USD') return s;

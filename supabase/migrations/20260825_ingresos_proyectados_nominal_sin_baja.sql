@@ -1,0 +1,10 @@
+-- Ingresos Proyectados: valor NOMINAL (base con descuento, SIN recargo de mora) y solo de
+-- estudiantes ACTIVOS (excluye bajas). Antes el cálculo (cliente) sumaba monto_final -abonado,
+-- por lo que quedaba inflado por el recargo de mora y contaba las bajas.
+-- Se agrega el campo 'ingresos_proyectados' a las RPC stats_cohorte y stats_programa.
+-- Fórmula por cuota (solo ARS, con monto definido, no "No aplica", estudiante NO de baja):
+--   base_nominal = round(monto_original * (1 - descuento/100), 2)
+--   abonado      = monto_abonado (si >0) | (monto_final - saldo_pendiente)
+--   falta        = greatest(0, base_nominal - abonado)
+-- Las definiciones completas de ambas funciones se aplicaron vía CREATE OR REPLACE
+-- (ver stats_cohorte y stats_programa en la base). Este archivo documenta el cambio del campo.
