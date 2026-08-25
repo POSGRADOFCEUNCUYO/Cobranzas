@@ -156,6 +156,24 @@ document.addEventListener('DOMContentLoaded', async function() {
     catch(e) { mostrarError('Error al cargar datos: ' + e.message); }
 });
 
+/* Clasifica a un estudiante en 1 de 4 estados globales (misma lógica para tarjetas y tabla):
+ *  EN_MORA       → alguna cuota vencida e impaga
+ *  CANCELO       → todas las cuotas Abonada o No aplica (ninguna A definir ni con saldo)
+ *  AL_DIA        → sin mora, pagó la cuota del mes en curso (o este mes no hay cuota con monto)
+ *  MES_POR_PAGAR → sin mora, la cuota del mes en curso no está saldada (mesParcial: algo pagado)
+ */
+function clasificarEstudiante(cobs) {
+    if (cobs.some(function(c){ return c._re==='EN_MORA'; })) return { estado:'EN_MORA', mesParcial:false };
+    if (cobs.length && cobs.every(function(c){ return c._re==='ABONADA' || c._re==='NO_APLICA'; })) return { estado:'CANCELO', mesParcial:false };
+    var mesActual = mesKey(hoy());
+    var mesAPagar = cobs.filter(function(c){
+        return mesKey(c.fecha_vencimiento) === mesActual && c._re !== 'A_DEFINIR' && c._re !== 'NO_APLICA';
+    });
+    if (mesAPagar.every(function(c){ return c._re==='ABONADA'; })) return { estado:'AL_DIA', mesParcial:false };
+    var parcial = mesAPagar.some(function(c){ return calcMontoAbonado(c) > 0; });
+    return { estado:'MES_POR_PAGAR', mesParcial:parcial };
+}
+
 async function cargar(sesion, cohorteId) {
     var sb = await getSupabase();
 
@@ -232,31 +250,13 @@ async function cargar(sesion, cohorteId) {
     _estudiantes = dnis.map(function(dni) {
         var usu   = usuMap[dni] || {};
         var cobs  = porDni[dni] || [];
-        var tieneMora = cobs.some(function(c){ return c._re==='EN_MORA'; });
         var deuda = cobs.reduce(function(s,c){
             if (c._re==='ABONADA') return s;
             return s + Number(c.saldo_pendiente||c.monto_final||0);
         }, 0);
         var pagado = cobs.reduce(function(s,c){ return s+calcMontoAbonado(c); },0);
-        // Estado global (4 categorías, en orden de prioridad):
-        //  EN_MORA       → tiene alguna cuota vencida e impaga
-        //  CANCELO       → canceló la carrera: TODAS las cuotas Abonada o No aplica (ninguna A definir ni con saldo)
-        //  AL_DIA        → sin mora, pagó la cuota del mes en curso (o este mes no hay cuota con monto)
-        //  MES_POR_PAGAR → sin mora, la cuota del mes en curso todavía no está paga (aún en plazo)
-        var _mesActual = mesKey(hoy());
-        var estadoGlobal;
-        if (tieneMora) {
-            estadoGlobal = 'EN_MORA';
-        } else if (cobs.length && cobs.every(function(c){ return c._re==='ABONADA' || c._re==='NO_APLICA'; })) {
-            estadoGlobal = 'CANCELO';
-        } else {
-            var _mesAPagar = cobs.filter(function(c){
-                return mesKey(c.fecha_vencimiento) === _mesActual && c._re !== 'A_DEFINIR' && c._re !== 'NO_APLICA';
-            });
-            var _mesPago = _mesAPagar.every(function(c){ return c._re==='ABONADA'; });
-            estadoGlobal = _mesPago ? 'AL_DIA' : 'MES_POR_PAGAR';
-        }
-        return { dni: dni, nombre: usu.nombre||'—', apellido: usu.apellido||'—', estadoGlobal: estadoGlobal, deuda: deuda, pagado: pagado, cobros: cobs };
+        var _cl = clasificarEstudiante(cobs);
+        return { dni: dni, nombre: usu.nombre||'—', apellido: usu.apellido||'—', estadoGlobal: _cl.estado, mesParcial: _cl.mesParcial, deuda: deuda, pagado: pagado, cobros: cobs };
     });
 
     renderTabla();
@@ -296,12 +296,12 @@ function renderTabla() {
 
     var rows = slice.map(function(e) {
         var _badgeMap = {
-            EN_MORA:       ['badge-mora',      'En mora'],
-            AL_DIA:        ['badge-abonada',   'Al día'],
-            MES_POR_PAGAR: ['badge-pendiente', 'Cuota del mes por pagar'],
-            CANCELO:       ['badge-cancelo',   'Canceló carrera']
+            EN_MORA:  ['badge-mora',    'En mora'],
+            AL_DIA:   ['badge-abonada', 'Al día'],
+            CANCELO:  ['badge-cancelo', 'Canceló carrera']
         };
-        var _bm = _badgeMap[e.estadoGlobal] || ['badge-pendiente', e.estadoGlobal];
+        // MES_POR_PAGAR se muestra según el estado real de la cuota del mes: No abonada / Abonada parcial
+        var _bm = _badgeMap[e.estadoGlobal] || ['badge-pendiente', e.mesParcial ? 'Abonada parcial' : 'No abonada'];
         var badgeCls = _bm[0], badgeTxt = _bm[1];
         var deudaHtml = e.deuda > 0 ? '<span class="monto text-danger">' + fM(e.deuda) + '</span>' : '<span class="text-muted">—</span>';
         return '<tr>' +
