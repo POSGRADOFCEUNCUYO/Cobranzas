@@ -738,14 +738,16 @@ function invalidarConfiguracion() {
 
 async function obtenerCobros(filtros) {
     const sb = await getSupabase();
-    let query = sb.from('cobros').select('*');
-    if (filtros) {
-        if (filtros.dni)         query = query.eq('dni', filtros.dni);
-        if (filtros.programa_id) query = query.eq('programa_id', filtros.programa_id);
-        if (filtros.cohorte_id)  query = query.eq('cohorte_id', filtros.cohorte_id);
-        if (filtros.estado)      query = query.eq('estado', filtros.estado);
-    }
-    const { data } = await query.order('fecha_vencimiento');
+    const { data } = await sbFetchAll(function(){
+        let query = sb.from('cobros').select('*');
+        if (filtros) {
+            if (filtros.dni)         query = query.eq('dni', filtros.dni);
+            if (filtros.programa_id) query = query.eq('programa_id', filtros.programa_id);
+            if (filtros.cohorte_id)  query = query.eq('cohorte_id', filtros.cohorte_id);
+            if (filtros.estado)      query = query.eq('estado', filtros.estado);
+        }
+        return query.order('fecha_vencimiento').order('cobro_id');
+    });
     return data || [];
 }
 
@@ -1466,10 +1468,12 @@ var _gasFunctions = {
     // Cooperadora - aprobar pagos
     obtenerListadoAprobarPagosCooperadora: async function(programaId, cohorteId) {
         var sb = await getSupabase();
-        var query = sb.from('cobros').select('*');
-        if (programaId) query = query.eq('programa_id', programaId);
-        if (cohorteId)  query = query.eq('cohorte_id', cohorteId);
-        var r = await query.order('fecha_vencimiento');
+        var r = await sbFetchAll(function(){
+            var query = sb.from('cobros').select('*');
+            if (programaId) query = query.eq('programa_id', programaId);
+            if (cohorteId)  query = query.eq('cohorte_id', cohorteId);
+            return query.order('fecha_vencimiento').order('cobro_id');
+        });
         return r.data || [];
     }
 };

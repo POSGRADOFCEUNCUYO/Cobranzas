@@ -424,7 +424,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 async function cargarDatos() {
     try {
         var sb = await getSupabase();
-        var rCobros  = await sb.from('cobros').select('programa_id,cohorte_id,fecha_vencimiento,estado,monto_final,saldo_pendiente,monto_abonado,moneda,estudiante_id,no_aplica,recibo_url,comprobante_url');
+        var rCobros  = await sbFetchAll(function(){ return sb.from('cobros').select('programa_id,cohorte_id,fecha_vencimiento,estado,monto_final,saldo_pendiente,monto_abonado,moneda,estudiante_id,no_aplica,recibo_url,comprobante_url').order('cobro_id'); });
         var rEgresos = await sb.from('egresos').select('programa_id,cohorte_id,fecha_pago,fecha_estimada,tipo,estado,monto_pagado,moneda');
         _cobros  = rCobros.data  || [];
         _cobros.forEach(function(c){ c._re = resolverEstadoCobro(c); });

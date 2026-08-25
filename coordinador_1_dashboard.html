@@ -269,7 +269,7 @@
             // Round 2: programas y cobros filtrados por las cohortes del coordinador
             var [rP, rCob] = await Promise.all([
                 allProgIds.length ? sb.from('programas').select('*').in('programa_id', allProgIds) : Promise.resolve({data:[]}),
-                cohIds.length ? sb.from('cobros').select('dni,programa_id,cohorte_id,estado,monto_abonado,monto_final,saldo_pendiente,moneda,no_aplica,fecha_vencimiento,recibo_url,comprobante_url').in('cohorte_id', cohIds) : Promise.resolve({data:[]})
+                cohIds.length ? sbFetchAll(function(){ return sb.from('cobros').select('dni,programa_id,cohorte_id,estado,monto_abonado,monto_final,saldo_pendiente,moneda,no_aplica,fecha_vencimiento,recibo_url,comprobante_url').in('cohorte_id', cohIds).order('cobro_id'); }) : Promise.resolve({data:[]})
             ]);
             var programas = rP.data || [];
             var cobros = rCob.data || [];

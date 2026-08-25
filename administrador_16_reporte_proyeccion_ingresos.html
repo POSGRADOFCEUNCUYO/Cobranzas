@@ -313,7 +313,7 @@ async function cargarDatos() {
 
         // Query cobros pending (not yet paid) — se traen todos y se clasifican con
         // resolverEstadoCobro (el estado crudo de BD puede estar desactualizado).
-        var rCobros = await sb.from('cobros').select('*');
+        var rCobros = await sbFetchAll(function(){ return sb.from('cobros').select('*').order('cobro_id'); });
         var rProgramas = await sb.from('programas').select('programa_id,nombre,tipo');
 
         var cobros = (rCobros.data || []);

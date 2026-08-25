@@ -273,7 +273,7 @@
     async function cargarDatos() {
         try {
             var sb = await getSupabase();
-            var rCobros = await sb.from('cobros').select('*, programas(nombre), cohortes(nombre)');
+            var rCobros = await sbFetchAll(function(){ return sb.from('cobros').select('*, programas(nombre), cohortes(nombre)').order('cobro_id'); });
             var cobros = rCobros.data || [];
             cobros.forEach(function(c){ c._re = resolverEstadoCobro(c); });
             // ── Aplicar filtros desde Cashflow ──

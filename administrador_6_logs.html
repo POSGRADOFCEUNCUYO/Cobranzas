@@ -380,7 +380,7 @@ async function cargarDatosBase() {
 
     // Cobros (concepto + periodo) — para historial_cobros
     try {
-        var rco = await sb.from('cobros').select('cobro_id,concepto,periodo,fecha_vencimiento');
+        var rco = await sbFetchAll(function(){ return sb.from('cobros').select('cobro_id,concepto,periodo,fecha_vencimiento').order('cobro_id'); });
         (rco.data || []).forEach(function (c) {
             _cobrosMap[c.cobro_id] = {
                 concepto:          c.concepto || '—',
