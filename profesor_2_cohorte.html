@@ -295,6 +295,12 @@ function renderTabla() {
         return true;
     });
 
+    // Orden alfabético por Apellido, Nombre (respeta acentos)
+    lista.sort(function(a, b){
+        return ((a.apellido||'') + ', ' + (a.nombre||'')).localeCompare(
+                (b.apellido||'') + ', ' + (b.nombre||''), 'es', { sensitivity: 'base' });
+    });
+
     var total = lista.length;
     var pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
     _pagina   = Math.min(_pagina, pages);
