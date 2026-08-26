@@ -143,7 +143,7 @@
                 <button class="fb" data-r="COOPERADORA" onclick="setRol(this)">Cooperadora</button>
                 <button class="fb" data-r="GERENTE_COOPERADORA" onclick="setRol(this)">Gerente Coop.</button>
                 <button class="fb" data-r="COORDINADOR" onclick="setRol(this)">Coordinador</button>
-                <button class="fb" data-r="PROFESOR" onclick="setRol(this)">Docente</button>
+                <button class="fb" data-r="PROFESOR" onclick="setRol(this)">Directores</button>
                 <button class="fb" data-r="ESTUDIANTE" onclick="setRol(this)">Estudiante</button>
             </div>
         </div>
@@ -198,7 +198,7 @@
                     <option value="COOPERADORA">Cooperadora</option>
                     <option value="GERENTE_COOPERADORA">Gerente Cooperadora</option>
                     <option value="COORDINADOR">Coordinador/a</option>
-                    <option value="PROFESOR">Docente/a</option>
+                    <option value="PROFESOR">Directores</option>
                     <option value="ESTUDIANTE">Estudiante</option>
                 </select>
             </div>
@@ -369,7 +369,7 @@ async function cargar(){
     finally{spin(false);}
 }
 
-var _RL={ADMINISTRADOR:'Administrador',SECRETARIA:'Secretaría',COOPERADORA:'Cooperadora',GERENTE_COOPERADORA:'Gerente Cooperadora',COORDINADOR:'Coordinador/a',PROFESOR:'Docente/a',ESTUDIANTE:'Estudiante'};
+var _RL={ADMINISTRADOR:'Administrador',SECRETARIA:'Secretaría',COOPERADORA:'Cooperadora',GERENTE_COOPERADORA:'Gerente Cooperadora',COORDINADOR:'Coordinador/a',PROFESOR:'Directores',ESTUDIANTE:'Estudiante'};
 var _SL={ACTIVO:'Activo',BLOQUEADO:'Bloqueado',PASIVO:'Pasivo'};
 
 function renderTabla(){
