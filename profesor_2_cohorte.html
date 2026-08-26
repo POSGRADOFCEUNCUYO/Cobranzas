@@ -327,7 +327,7 @@ function renderTabla() {
             '<td>' + esc(e.apellido) + ', ' + esc(e.nombre) + '</td>' +
             '<td>' + esc(e.dni) + '</td>' +
             '<td><span class="badge ' + badgeCls + '">' + badgeTxt + '</span></td>' +
-            '<td>' + e.cobros.length + '</td>' +
+            '<td>' + e.cobros.filter(function(c){ return c.no_aplica !== true; }).length + '</td>' +
             '<td><span class="monto text-success">' + fM(e.pagado) + '</span></td>' +
             '<td>' + deudaHtml + '</td>' +
             '</tr>';
