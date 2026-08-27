@@ -511,7 +511,9 @@ async function cargarVista() {
         ];
 
         // Encabezado subtitle
-        var progNombre = (_programas.find(function(p){ return String(p.programa_id)===String(filtPrograma); }) || _programas[0] || {}).nombre || 'Mis programas';
+        var progNombre = filtPrograma
+            ? ((_programas.find(function(p){ return String(p.programa_id)===String(filtPrograma); }) || {}).nombre || 'Mis programas')
+            : 'Todos mis programas';
         var cohNombre  = filtCohorte ? ((cohortesF[0] || {}).nombre || 'Cohorte') : 'Todas las cohortes';
         document.getElementById('headerSubtitle').textContent = progNombre + ' • ' + cohNombre + ' • ' + etiquetaPeriodo;
 
