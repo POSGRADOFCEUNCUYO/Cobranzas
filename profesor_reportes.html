@@ -74,7 +74,7 @@
         }
         .btn-filter:hover { background: var(--primary-2); }
 
-        .summary-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px; margin-bottom: 28px; }
+        .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
         .summary-item {
             background: white; padding: 20px; border-radius: 12px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.06); border-left: 4px solid var(--accent);
@@ -413,10 +413,24 @@ async function cargarVista() {
         // Resumen — solo estudiantes activos: las bajas no cuentan en los KPIs (igual que secretaría)
         function eKey(c){ return c.dni + '|' + c.programa_id; }
         var cobAct = cobF.filter(function(c){ return activoDnis.has(String(c.dni)); });
-        var dnisEnMora  = new Set(cobAct.filter(function(c){ return c._re === 'EN_MORA'; }).map(eKey));
-        var dnisParcial = new Set(cobAct.filter(function(c){ return c._re === 'PAGO_PARCIAL'; }).map(eKey));
         var dnisTotal   = new Set(cobAct.map(eKey));
-        var dnisAlDia   = new Set([...dnisTotal].filter(function(k){ return !dnisEnMora.has(k); }));
+        // Clasificación por estudiante (misma definición que profesor_2_cohorte):
+        //  EN_MORA      → tiene alguna cuota vencida e impaga
+        //  AL_DIA       → sin mora y con la/s cuota/s del mes corriente abonada/s
+        //  MES_ADEUDADO → sin mora, pero con la cuota del mes corriente sin pagar (o parcial)
+        var _mesActual = mesKey(hoy());
+        var _porEst = {};
+        cobAct.forEach(function(c){ var k = eKey(c); if (!_porEst[k]) _porEst[k] = { cohorte_id: c.cohorte_id, cobros: [] }; _porEst[k].cobros.push(c); });
+        function _clasificar(cobs){
+            if (cobs.some(function(c){ return c._re === 'EN_MORA'; })) return 'EN_MORA';
+            var mesAPagar = cobs.filter(function(c){ return mesKey(c.fecha_vencimiento) === _mesActual && c._re !== 'A_DEFINIR' && c._re !== 'NO_APLICA'; });
+            if (mesAPagar.every(function(c){ return c._re === 'ABONADA'; })) return 'AL_DIA';
+            return 'MES_ADEUDADO';
+        }
+        Object.keys(_porEst).forEach(function(k){ _porEst[k].estado = _clasificar(_porEst[k].cobros); });
+        var dnisEnMora   = new Set(Object.keys(_porEst).filter(function(k){ return _porEst[k].estado === 'EN_MORA'; }));
+        var dnisAlDia    = new Set(Object.keys(_porEst).filter(function(k){ return _porEst[k].estado === 'AL_DIA'; }));
+        var dnisMesAdeud = new Set(Object.keys(_porEst).filter(function(k){ return _porEst[k].estado === 'MES_ADEUDADO'; }));
         // Recaudado separado por moneda — ARS y USD nunca se suman
         var _recCob = cobF.filter(function(c){ return calcMontoAbonado(c) > 0; });
         var recaudadoArs = _recCob.filter(function(c){ return (c.moneda||'ARS')==='ARS'; })
@@ -433,9 +447,10 @@ async function cargarVista() {
             '<div class="summary-item"><div class="summary-label">Total Recaudado ' + etiquetaPeriodo + '</div><div class="summary-value">' + fMontoDual(recaudadoArs, recaudadoUsd) + '</div></div>' +
             '<div class="summary-item rojo"><div class="summary-label">Egresos Ejecutados ' + etiquetaPeriodo + '</div><div class="summary-value rojo">' + fM(egresos) + '</div></div>' +
             '<div class="summary-item ' + (saldo >= 0 ? 'verde' : 'rojo') + '"><div class="summary-label">Saldo ' + etiquetaPeriodo + (recaudadoUsd>0?' (ARS)':'') + '</div><div class="summary-value ' + (saldo >= 0 ? 'verde' : 'rojo') + '">' + fM(saldo) + '</div></div>' +
+            '<div class="summary-item naranja"><div class="summary-label">Tasa de Pago</div><div class="summary-value">' + tasaPago + '%</div></div>' +
             '<div class="summary-item verde"><div class="summary-label">Estudiantes al Día</div><div class="summary-value verde">' + dnisAlDia.size + '</div></div>' +
-            '<div class="summary-item rojo"><div class="summary-label">En Mora</div><div class="summary-value rojo">' + dnisEnMora.size + '</div></div>' +
-            '<div class="summary-item naranja"><div class="summary-label">Tasa de Pago</div><div class="summary-value">' + tasaPago + '%</div></div>';
+            '<div class="summary-item naranja"><div class="summary-label">Mes corriente adeudado</div><div class="summary-value">' + dnisMesAdeud.size + '</div></div>' +
+            '<div class="summary-item rojo"><div class="summary-label">En Mora</div><div class="summary-value rojo">' + dnisEnMora.size + '</div></div>';
 
         // Cashflow mensual
         var mesKeys = {};
@@ -471,19 +486,17 @@ async function cargarVista() {
             return true;
         });
         var ecLabels  = cohortesF.map(function(c){ return c.nombre || 'Cohorte'; });
-        var ecAlDia   = cohortesF.map(function(c){ var cc=cobAct.filter(function(x){return x.cohorte_id===c.cohorte_id;}); var em=new Set(cc.filter(function(x){return x._re==='EN_MORA';}).map(function(x){return x.dni;})); return Math.max(0,new Set(cc.map(function(x){return x.dni;})).size-em.size); });
-        var ecMora    = cohortesF.map(function(c){ return new Set(cobAct.filter(function(x){ return x.cohorte_id===c.cohorte_id && x._re==='EN_MORA'; }).map(function(x){ return x.dni; })).size; });
-        var ecParcial = cohortesF.map(function(c){ return new Set(cobAct.filter(function(x){ return x.cohorte_id===c.cohorte_id && x._re==='PAGO_PARCIAL'; }).map(function(x){ return x.dni; })).size; });
+        function _contCoh(cohId, estado){ return Object.keys(_porEst).filter(function(k){ return _porEst[k].cohorte_id === cohId && _porEst[k].estado === estado; }).length; }
+        var ecAlDia    = cohortesF.map(function(c){ return _contCoh(c.cohorte_id, 'AL_DIA'); });
+        var ecMesAdeud = cohortesF.map(function(c){ return _contCoh(c.cohorte_id, 'MES_ADEUDADO'); });
+        var ecMora     = cohortesF.map(function(c){ return _contCoh(c.cohorte_id, 'EN_MORA'); });
 
         // Evolución mora mensual
         var emMora = meses.map(function(k){ return new Set(cobAct.filter(function(c){ return c._re==='EN_MORA' && c.fecha_vencimiento && c.fecha_vencimiento.startsWith(k); }).map(function(c){ return c.dni; })).size; });
 
-        // Donut estudiantes por estado
-        var epLabels  = ['Al Día','En Mora','Pago Parcial','Pendiente'];
-        var epValores = [
-            dnisAlDia.size, dnisEnMora.size, dnisParcial.size,
-            new Set(cobAct.filter(function(c){ return c._re==='PENDIENTE'||c._re==='NO_ABONADA'; }).map(eKey)).size
-        ];
+        // Donut estudiantes por estado (partición exclusiva: cada alumno en un solo grupo)
+        var epLabels  = ['Al Día','Mes corriente adeudado','En Mora'];
+        var epValores = [dnisAlDia.size, dnisMesAdeud.size, dnisEnMora.size];
 
         // Encabezado subtitle
         var progNombre = filtPrograma
@@ -504,9 +517,9 @@ async function cargarVista() {
         function(ctx) { return ' ' + ctx.dataset.label + ': ' + fM(ctx.parsed.y); });
 
         renderBarChart('estados', ecLabels, [
-            { label: 'Al día',       data: ecAlDia,   backgroundColor: 'rgba(45,122,79,0.80)', borderColor: '#2d7a4f' },
-            { label: 'En mora',      data: ecMora,    backgroundColor: 'rgba(192,57,43,0.80)', borderColor: '#c0392b' },
-            { label: 'Pago parcial', data: ecParcial, backgroundColor: 'rgba(37,99,235,0.75)', borderColor: '#2563eb' }
+            { label: 'Al día',                data: ecAlDia,    backgroundColor: 'rgba(45,122,79,0.80)', borderColor: '#2d7a4f' },
+            { label: 'Mes corriente adeudado', data: ecMesAdeud, backgroundColor: 'rgba(217,119,6,0.80)', borderColor: '#d97706' },
+            { label: 'En mora',               data: ecMora,     backgroundColor: 'rgba(192,57,43,0.80)', borderColor: '#c0392b' }
         ], {});
 
         renderLineChart('mora', cfLabels, [
@@ -567,7 +580,7 @@ function renderDoughnut(key, labels, valores) {
         type: 'doughnut',
         data: {
             labels: labels,
-            datasets: [{ data: valores, backgroundColor: ['#2d7a4f','#c0392b','#2563eb','#9ca3af'], borderColor: '#fff', borderWidth: 3 }]
+            datasets: [{ data: valores, backgroundColor: ['#2d7a4f','#d97706','#c0392b'], borderColor: '#fff', borderWidth: 3 }]
         },
         options: {
             responsive: true, maintainAspectRatio: false,
@@ -630,17 +643,18 @@ function exportar(tipo) {
 
     try {
         if (tipo === 'resumen') {
-            // El grid tiene 6 valores en este orden:
-            // [0]=Recaudado [1]=Egresos [2]=Saldo [3]=Al Día [4]=En Mora [5]=Tasa
+            // El grid tiene 7 valores en este orden:
+            // [0]=Recaudado [1]=Egresos [2]=Saldo [3]=Tasa [4]=Al Día [5]=Mes corriente adeudado [6]=En Mora
             var sv = document.querySelectorAll('#summaryGrid .summary-value');
             var gv = function(i){ return sv[i] ? sv[i].textContent : '—'; };
             var filas = [
-                { 'Indicador': 'Total Recaudado',     'Valor': gv(0) },
-                { 'Indicador': 'Egresos Ejecutados',  'Valor': gv(1) },
-                { 'Indicador': 'Saldo',               'Valor': gv(2) },
-                { 'Indicador': 'Estudiantes al Día',  'Valor': gv(3) },
-                { 'Indicador': 'En Mora',             'Valor': gv(4) },
-                { 'Indicador': 'Tasa de Pago',        'Valor': gv(5) }
+                { 'Indicador': 'Total Recaudado',        'Valor': gv(0) },
+                { 'Indicador': 'Egresos Ejecutados',     'Valor': gv(1) },
+                { 'Indicador': 'Saldo',                  'Valor': gv(2) },
+                { 'Indicador': 'Tasa de Pago',           'Valor': gv(3) },
+                { 'Indicador': 'Estudiantes al Día',     'Valor': gv(4) },
+                { 'Indicador': 'Mes corriente adeudado', 'Valor': gv(5) },
+                { 'Indicador': 'En Mora',                'Valor': gv(6) }
             ];
             var ws = XLSX.utils.json_to_sheet(filas);
             XLSX.utils.book_append_sheet(wb, ws, 'Resumen');
