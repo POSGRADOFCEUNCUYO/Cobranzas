@@ -190,16 +190,6 @@
                 <label for="selCohorte">Cohorte / Edición</label>
                 <select id="selCohorte"></select>
             </div>
-            <div class="field" style="min-width:110px;">
-                <label for="selAnio">Año</label>
-                <div style="display:flex;align-items:center;gap:8px;">
-                    <input type="number" id="selAnio" min="2000" max="2099" style="width:110px;" onkeydown="if(event.key==='Enter') cargarVista()">
-                    <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:#594F42;font-weight:600;cursor:pointer;white-space:nowrap;">
-                        <input type="checkbox" id="todosAnios" onchange="toggleTodosAnios(this)" style="width:15px;height:15px;cursor:pointer;accent-color:#5C1018;">
-                        Toda la cohorte
-                    </label>
-                </div>
-            </div>
             <div class="field">
                 <label for="selDesde">Desde</label>
                 <input type="date" id="selDesde" style="width:150px;" onkeydown="if(event.key==='Enter') cargarVista()">
@@ -265,28 +255,15 @@ var _cohortes  = [];
 var _cobrosExport = [];
 var _egresosExport = [];
 var charts = {};
-var DEFAULT_ANIO = String(new Date().getFullYear());
 
-function toggleTodosAnios(cb) {
-    var selAnio = document.getElementById('selAnio');
-    selAnio.disabled = cb.checked;
-    selAnio.style.opacity = cb.checked ? '0.4' : '1';
-    // "Toda la cohorte" ignora también el rango de fechas
-    ['selDesde','selHasta'].forEach(function(id){
-        var el = document.getElementById(id);
-        if (el) { el.disabled = cb.checked; el.style.opacity = cb.checked ? '0.4' : '1'; }
-    });
-}
-
-// Estado actual del filtro temporal (rango de fechas o año). Lee el DOM.
+// Estado actual del filtro temporal. Lee el DOM.
+// Sin rango de fechas => toda la cohorte (todo el histórico cargado).
 function _leerFiltroFecha() {
-    var todos = document.getElementById('todosAnios');
-    var todosChecked = !!(todos && todos.checked);
-    var elD = document.getElementById('selDesde'), elH = document.getElementById('selHasta'), elA = document.getElementById('selAnio');
+    var elD = document.getElementById('selDesde'), elH = document.getElementById('selHasta');
     var desde = (elD && elD.value) || '';
     var hasta = (elH && elH.value) || '';
-    var anio  = todosChecked ? '' : ((elA && elA.value) || DEFAULT_ANIO);
-    return { todos: todosChecked, usaRango: !todosChecked && !!(desde || hasta), desde: desde, hasta: hasta, anio: anio };
+    var usaRango = !!(desde || hasta);
+    return { todos: !usaRango, usaRango: usaRango, desde: desde, hasta: hasta, anio: '' };
 }
 
 // ¿La fecha (ISO 'YYYY-MM-DD…') pasa el filtro temporal? Sin fecha no se excluye (igual que el filtro de año previo).
@@ -363,9 +340,7 @@ async function cargarVista() {
 
         var filtPrograma = document.getElementById('selPrograma').value;
         var filtCohorte  = document.getElementById('selCohorte').value;
-        var todosAnios   = document.getElementById('todosAnios');
-        var filtAnio     = (todosAnios && todosAnios.checked) ? '' : (document.getElementById('selAnio').value || DEFAULT_ANIO);
-        var ff             = _leerFiltroFecha();              // rango de fechas o año
+        var ff             = _leerFiltroFecha();              // rango de fechas o toda la cohorte
         var etiquetaPeriodo = _etiquetaPeriodo(ff);           // texto para los títulos
 
         // Cohortes visibles: programas completos Y/O cohortes específicas
@@ -651,8 +626,6 @@ function exportar(tipo) {
     var fecha = new Date().toISOString().slice(0, 10);
     var filtPrograma  = document.getElementById('selPrograma').value;
     var filtCohorte   = document.getElementById('selCohorte').value;
-    var todosAniosChk = document.getElementById('todosAnios');
-    var filtAnio      = (todosAniosChk && todosAniosChk.checked) ? '' : document.getElementById('selAnio').value;
     var ff            = _leerFiltroFecha();
 
     try {
@@ -804,7 +777,6 @@ document.addEventListener('DOMContentLoaded', async function() {
     if (!_session) { window.location.href = 'portal_login.html'; return; }
     var sesion = getSesion();
     if (!sesion || sesion.rol !== 'PROFESOR') { window.location.href = 'portal_login.html'; return; }
-    document.getElementById('selAnio').value = DEFAULT_ANIO;
     cargarVista();
     if (typeof obtenerNotificaciones === 'function') obtenerNotificaciones('PROFESOR').then(renderNotificaciones);
 });
