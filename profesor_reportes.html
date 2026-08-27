@@ -438,7 +438,18 @@ async function cargarVista() {
         var recaudadoUsd = _recCob.filter(function(c){ return c.moneda==='USD'; })
                               .reduce(function(s,c){ return s + calcMontoAbonado(c); }, 0);
         var recaudado = recaudadoArs;
-        var tasaPago = dnisTotal.size > 0 ? Math.round(dnisAlDia.size / dnisTotal.size * 100) : 0;
+        // Tasa de pago = % de cuotas cobradas sobre lo facturado exigible a la fecha.
+        // Exigible = cuotas ARS (de alumnos activos) con monto definido cuyo vencimiento
+        // cae hasta el fin del mes actual inclusive (incluye la cuota del mes corriente
+        // aunque todavía no haya vencido).
+        var _cobExig = cobAct.filter(function(c){
+            return (c.moneda||'ARS')==='ARS' && c.no_aplica !== true && c._re !== 'A_DEFINIR'
+                && Number(c.monto_final||0) > 0
+                && c.fecha_vencimiento && mesKey(c.fecha_vencimiento) <= _mesActual;
+        });
+        var _facturadoExig = _cobExig.reduce(function(s,c){ return s + Number(c.monto_final||0); }, 0);
+        var _cobradoExig   = _cobExig.reduce(function(s,c){ return s + Math.min(calcMontoAbonado(c), Number(c.monto_final||0)); }, 0);
+        var tasaPago = _facturadoExig > 0 ? Math.round(_cobradoExig / _facturadoExig * 100) : 0;
         var egresos  = egrF.filter(function(e){ return e.tipo === 'EJECUTADO' && (e.moneda||'ARS')==='ARS'; })
                            .reduce(function(s,e){ return s + Number(e.monto_pagado||0); }, 0);
         var saldo    = recaudadoArs - egresos;
