@@ -382,8 +382,8 @@ async function cargarVista() {
         var [rP, rCob, rEgr, rInsc] = await Promise.all([
             allProgIds.length ? sb.from('programas').select('programa_id,nombre').in('programa_id', allProgIds) : Promise.resolve({data:[]}),
             cohIds.length ? sbFetchAll(function(){ return sb.from('cobros').select('dni,programa_id,cohorte_id,estado,monto_final,saldo_pendiente,monto_abonado,fecha_vencimiento,fecha_pago,moneda,no_aplica,recibo_url,comprobante_url').in('cohorte_id', cohIds).order('cobro_id'); }) : Promise.resolve({data:[]}),
-            cohIds.length ? sb.from('egresos').select('programa_id,cohorte_id,monto_pagado,tipo,fecha_pago,fecha_estimada,moneda').in('cohorte_id', cohIds) : Promise.resolve({data:[]}),
-            cohIds.length ? sb.from('inscripciones').select('cohorte_id,estudiante_id,estado_academico').in('cohorte_id', cohIds) : Promise.resolve({data:[]})
+            cohIds.length ? sbFetchAll(function(){ return sb.from('egresos').select('programa_id,cohorte_id,monto_pagado,tipo,fecha_pago,fecha_estimada,moneda').in('cohorte_id', cohIds).order('egreso_id'); }) : Promise.resolve({data:[]}),
+            cohIds.length ? sbFetchAll(function(){ return sb.from('inscripciones').select('cohorte_id,estudiante_id,estado_academico').in('cohorte_id', cohIds).order('id'); }) : Promise.resolve({data:[]})
         ]);
 
         _programas = rP.data || [];
@@ -393,7 +393,7 @@ async function cargarVista() {
         // Estudiantes activos (excluye bajas de los KPIs, igual que secretaría)
         var _inscData = rInsc.data || [];
         var _estIds = [...new Set(_inscData.map(function(i){ return i.estudiante_id; }).filter(Boolean))];
-        var _rEst = _estIds.length ? await sb.from('estudiantes').select('id,dni').in('id', _estIds) : { data: [] };
+        var _rEst = _estIds.length ? await sbFetchAll(function(){ return sb.from('estudiantes').select('id,dni').in('id', _estIds).order('id'); }) : { data: [] };
         var _dniById = {};
         (_rEst.data||[]).forEach(function(e){ _dniById[e.id] = String(e.dni); });
         var activoDnis = new Set(_inscData.filter(function(i){ return (i.estado_academico||'ACTIVO')==='ACTIVO'; }).map(function(i){ return _dniById[i.estudiante_id]; }).filter(Boolean));
