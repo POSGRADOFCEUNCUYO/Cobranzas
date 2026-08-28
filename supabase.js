@@ -1002,8 +1002,11 @@ async function obtenerRecibosTango(cobroIds) {
 // Cobros para reportes de tasa de deserción (campo fijo, todos los programas)
 async function obtenerCobrosParaDesercion() {
     const sb = await getSupabase();
-    const { data, error } = await sb.from('cobros')
-        .select('programa_id, cohorte_id, dni, estado, fecha_vencimiento, monto_final, saldo_pendiente, no_aplica, recibo_url, comprobante_url');
+    const { data, error } = await sbFetchAll(function(){
+        return sb.from('cobros')
+            .select('programa_id, cohorte_id, dni, estado, fecha_vencimiento, monto_final, saldo_pendiente, no_aplica, recibo_url, comprobante_url')
+            .order('cobro_id');
+    });
     if (error) throw error;
     return data || [];
 }
