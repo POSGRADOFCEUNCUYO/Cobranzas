@@ -397,6 +397,15 @@ function renderTabla(tipo) {
         return true;
     });
 
+    // Orden alfabético por proveedor (los que no tienen proveedor van al final)
+    rows.sort(function(a, b) {
+        var pa = (a.proveedor||'').trim(), pb = (b.proveedor||'').trim();
+        if (!pa && !pb) return 0;
+        if (!pa) return 1;
+        if (!pb) return -1;
+        return pa.localeCompare(pb, 'es', { sensitivity: 'base' });
+    });
+
     if (!rows.length) {
         tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:48px;color:#aaa;font-size:14px;">No hay registros para mostrar</td></tr>';
         renderPaginadorAdmin12(tipo, 0);

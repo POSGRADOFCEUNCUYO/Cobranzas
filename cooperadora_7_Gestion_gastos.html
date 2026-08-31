@@ -500,6 +500,15 @@ function renderTabla(tipo) {
         });
     }
 
+    // Orden alfabético por proveedor (los que no tienen proveedor van al final)
+    lista.sort(function(a, b) {
+        var pa = (a.proveedor||'').trim(), pb = (b.proveedor||'').trim();
+        if (!pa && !pb) return 0;
+        if (!pa) return 1;
+        if (!pb) return -1;
+        return pa.localeCompare(pb, 'es', { sensitivity: 'base' });
+    });
+
     var tbody = document.querySelector('#tabla' + (tipo==='proyectados'?'Proyectados':'Ejecutados') + ' tbody');
     if (!tbody) return;
     if (!lista.length) { tbody.innerHTML='<tr><td colspan="10" style="text-align:center;padding:40px;color:#aaa;">No hay registros</td></tr>'; return; }
