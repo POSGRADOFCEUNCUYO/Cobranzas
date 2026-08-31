@@ -292,6 +292,15 @@ function renderTabla(data) {
         tfoot.innerHTML = ''; renderPaginadorGas(0); return;
     }
 
+    // Orden alfabético por proveedor (los que no tienen proveedor van al final)
+    data.sort(function(a, b) {
+        var pa = (a.proveedor||'').trim(), pb = (b.proveedor||'').trim();
+        if (!pa && !pb) return 0;
+        if (!pa) return 1;
+        if (!pb) return -1;
+        return pa.localeCompare(pb, 'es', { sensitivity: 'base' });
+    });
+
     var totalPags = Math.ceil(data.length / POR_PAG);
     _pagGas = Math.min(_pagGas, totalPags);
     var slice = data.slice((_pagGas-1)*POR_PAG, _pagGas*POR_PAG);
