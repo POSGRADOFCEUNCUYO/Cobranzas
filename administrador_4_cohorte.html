@@ -2113,7 +2113,15 @@ async function exportarExcel() {
             var fila = [est.apellido, est.nombre, est.dni, est.email, est.descuento_porcentaje, etiquetaEstado(calcEstadoGeneral(est.cobros)), monedaLabel];
             columnas.forEach(function(col) {
                 var c = cobrosMap[keyCuota(col.concepto_base, col.periodo)];
-                fila.push(c ? (Number(c.monto_final) || 0) : '');
+                if (!c) { fila.push(''); return; }
+                var estC = resolverEstadoCobro(c);
+                if (c.no_aplica === true || estC === 'NO_APLICA') { fila.push(''); return; }
+                var ab = Number(c.monto_abonado) || 0;   // abonado ya aprobado por cooperadora
+                // Monto con comprobante subido pero pendiente de aprobación de cooperadora
+                var pe = (estC === 'PENDIENTE') ? (Number(c.monto_transferido) || Number(c.monto_final) || 0) : 0;
+                if (pe > 0 && ab > 0)   fila.push(ab + ' + ' + pe + ' (pend.)');
+                else if (pe > 0)        fila.push(pe + ' (pend.)');
+                else                    fila.push(ab);
             });
             fila.push(totP, totA, totS);
             return fila;
