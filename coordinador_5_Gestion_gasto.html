@@ -611,9 +611,10 @@
                 if (todosLosCohIds.length) filtrosEgr.push('cohorte_id.in.(' + todosLosCohIds.join(',') + ')');
                 if (todosProgIds.length)   filtrosEgr.push('and(programa_id.in.(' + todosProgIds.join(',') + '),cohorte_id.is.null)');
                 var rE = filtrosEgr.length
-                    ? await sb.from('egresos')
+                    ? await sbFetchAll(function(){ return sb.from('egresos')
                         .select('egreso_id,egreso_padre_id,programa_id,cohorte_id,tipo,estado,monto_pagado,monto_original,monto_pendiente,moneda,fecha_pago,fecha_estimada,proveedor,concepto,categoria,nro_comprobante,fecha_comprobante')
                         .or(filtrosEgr.join(','))
+                        .order('egreso_id'); })
                     : { data: [] };
 
                 // Alias para compatibilidad con el resto del código

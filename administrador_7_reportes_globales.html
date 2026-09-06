@@ -574,13 +574,15 @@ async function aplicarFiltros() {
     var cobros = rCobros.data || [];
 
     // ── Egresos ──────────────────────────────────────────
-    var qEgr = sb.from('egresos')
-        .select('egreso_id,programa_id,cohorte_id,categoria,tipo,estado,concepto,proveedor,monto_original,monto_pagado,monto_pendiente,moneda,fecha_estimada,fecha_pago');
-    if (progId) qEgr = qEgr.eq('programa_id', progId);
-    if (cohId)  qEgr = qEgr.eq('cohorte_id',  cohId);
-    if (desde)  qEgr = qEgr.gte('fecha_estimada', desde);
-    if (hasta)  qEgr = qEgr.lte('fecha_estimada', hasta);
-    var rEgr = await qEgr;
+    var rEgr = await sbFetchAll(function(){
+        var q = sb.from('egresos')
+            .select('egreso_id,programa_id,cohorte_id,categoria,tipo,estado,concepto,proveedor,monto_original,monto_pagado,monto_pendiente,moneda,fecha_estimada,fecha_pago');
+        if (progId) q = q.eq('programa_id', progId);
+        if (cohId)  q = q.eq('cohorte_id',  cohId);
+        if (desde)  q = q.gte('fecha_estimada', desde);
+        if (hasta)  q = q.lte('fecha_estimada', hasta);
+        return q.order('egreso_id');
+    });
     _egresosData = rEgr.data || [];
 
     // ── Inscripciones para deserción ──────────────────────────

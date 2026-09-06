@@ -283,7 +283,7 @@ var _chart1 = null;
 var CAT_COLORS = ['var(--clr-danger)','#0891b2','var(--clr-warning)','#6b7280','var(--clr-success)','#7c3aed','#5C1018','#db2777','#d97706'];async function cargarDatos() {
     try {
         var sb = await getSupabase();
-        var r = await sb.from('egresos').select('*');
+        var r = await sbFetchAll(function(){ return sb.from('egresos').select('*').order('egreso_id'); });
         var proyectados = (r.data || []).filter(function(e) { return e.tipo==='PROYECTADO' && e.estado==='PENDIENTE'; });
         // ── Aplicar filtros desde Cashflow ──
         try {

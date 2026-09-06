@@ -295,7 +295,7 @@ async function cargar() {
     try {
         var sb = await getSupabase();
         var [egRes,progRes,catRes,cohRes] = await Promise.all([
-            sb.from('egresos').select('*').order('fecha_estimada',{ascending:false}),
+            sbFetchAll(function(){ return sb.from('egresos').select('*').order('fecha_estimada',{ascending:false}).order('egreso_id'); }),
             sb.from('programas').select('programa_id,nombre,tipo').order('nombre'),
             sb.from('categorias_gastos').select('id,nombre,tipo').order('id'),
             sb.from('cohortes').select('cohorte_id,nombre,programa_id').order('nombre')

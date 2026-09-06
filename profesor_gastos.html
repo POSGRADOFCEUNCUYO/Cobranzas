@@ -388,10 +388,11 @@ document.addEventListener('DOMContentLoaded', async function() {
         (rP.data || []).forEach(function(p){ _progMap[p.programa_id] = p.nombre; });
 
         var rE = cohIds.length
-            ? await sb.from('egresos')
+            ? await sbFetchAll(function(){ return sb.from('egresos')
                 .select('egreso_id,programa_id,cohorte_id,tipo,estado,monto_original,monto_pagado,monto_pendiente,moneda,fecha_estimada,fecha_pago,categoria,proveedor,nro_comprobante')
                 .in('cohorte_id', cohIds)
                 .order('fecha_estimada', { ascending: false })
+                .order('egreso_id'); })
             : { data: [] };
         _todos = rE.data || [];
 
