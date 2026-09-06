@@ -1892,15 +1892,27 @@
             const tieneComprobante = !!cuota.comprobanteUrl;
             const recibos = recibosTangoMap[cuota.cobroId] || [];
 
-            if (cuota.estado === 'pendiente') {
+            // Estados donde cooperadora puede registrar/aprobar un pago (abre el modal de aprobación):
+            // pendiente (comprobante subido), noabonada / mora (el alumno transfirió sin subir comprobante)
+            // y parcial (registrar un pago adicional sobre el saldo restante).
+            const puedeAprobar = (cuota.estado === 'pendiente' || cuota.estado === 'noabonada'
+                                  || cuota.estado === 'mora' || cuota.estado === 'parcial');
+
+            if (puedeAprobar) {
                 btnsHtml = '<div class="cuota-actions-inline">';
                 if (tieneComprobante) {
                     btnsHtml += `<button class="cbtn cbtn-ver" title="Ver comprobante del alumno" onclick="verComprobante('${escapeJs(cuota.comprobanteUrl)}', event)">📄 Comp.</button>`;
                 }
-                btnsHtml += `<button class="cbtn cbtn-ok" title="Aprobar" onclick="abrirAprobacionModal('${escapeJs(String(cuota.cobroId))}', event)">✔ Aprob.</button>`;
-                btnsHtml += `<button class="cbtn cbtn-no" title="Rechazar" onclick="rechazarCuota('${escapeJs(String(cuota.cobroId))}', event)">✕ Rech.</button>`;
+                recibos.forEach(function(r, idx) {
+                    var lbl = recibos.length > 1 ? ('🧾 Recibo ' + (idx+1)) : '🧾 Recibo';
+                    btnsHtml += `<button class="cbtn cbtn-recibo" title="Recibo N°${escapeJs(r.nro_recibo||String(idx+1))}" onclick="verComprobante('${escapeJs(r.pdf_url)}', event)">${lbl}</button>`;
+                });
+                btnsHtml += `<button class="cbtn cbtn-ok" title="Registrar pago / Aprobar" onclick="abrirAprobacionModal('${escapeJs(String(cuota.cobroId))}', event)">✔ Aprob.</button>`;
+                if (cuota.estado === 'pendiente') {
+                    btnsHtml += `<button class="cbtn cbtn-no" title="Rechazar" onclick="rechazarCuota('${escapeJs(String(cuota.cobroId))}', event)">✕ Rech.</button>`;
+                }
                 btnsHtml += '</div>';
-            } else if (cuota.estado === 'abonada' || cuota.estado === 'parcial') {
+            } else if (cuota.estado === 'abonada') {
                 if (tieneComprobante || recibos.length > 0) {
                     btnsHtml = '<div class="cuota-actions-inline">';
                     if (tieneComprobante) {
