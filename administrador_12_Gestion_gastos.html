@@ -194,16 +194,34 @@
                 <div class="form-group"><label class="form-label">Estado *</label><select class="form-select" id="g-estado"><option value="PENDIENTE">Pendiente</option><option value="CANCELADO">Cancelado (Ejecutado)</option></select></div>
             </div>
             <div class="form-group"><label class="form-label">Concepto / Descripción *</label><textarea class="form-textarea" id="g-concepto" placeholder="Detalle del gasto..."></textarea></div>
-            <div class="grid-2">
-                <div class="form-group"><label class="form-label">Programa *</label><select class="form-select" id="g-programa" onchange="cargarCohortes(this.value)"><option value="">— Seleccionar —</option></select></div>
-                <div class="form-group"><label class="form-label">Cohorte / Edición</label><select class="form-select" id="g-cohorte"><option value="">— Seleccionar programa —</option></select></div>
+            <div class="form-group" id="grp-reparto-toggle" style="background:#fbf7ef;border:1px dashed #d9c48f;border-radius:8px;padding:8px 10px;">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;margin:0;"><input type="checkbox" id="g-reparto-on" onchange="toggleReparto()"> 🔗 Repartir este comprobante entre varios programas / cohortes</label>
+                <div class="form-hint" style="margin-top:4px;">Usalo cuando una misma factura corresponde a más de un programa o edición. Se carga dividida (una parte por programa) respetando el mismo comprobante.</div>
             </div>
             <div class="grid-2">
-                <div class="form-group"><label class="form-label">Monto Original *</label><input type="number" class="form-input" id="g-monto-original" placeholder="0" min="0" step="100"></div>
+                <div class="form-group" id="fg-programa"><label class="form-label">Programa *</label><select class="form-select" id="g-programa" onchange="cargarCohortes(this.value)"><option value="">— Seleccionar —</option></select></div>
+                <div class="form-group" id="fg-cohorte"><label class="form-label">Cohorte / Edición</label><select class="form-select" id="g-cohorte"><option value="">— Seleccionar programa —</option></select></div>
+            </div>
+            <div class="grid-2">
+                <div class="form-group" id="fg-monto-original"><label class="form-label">Monto Original *</label><input type="number" class="form-input" id="g-monto-original" placeholder="0" min="0" step="100"></div>
                 <div class="form-group"><label class="form-label">Moneda *</label><select class="form-select" id="g-moneda" onchange="toggleTipoCambio()"><option value="ARS">ARS — Pesos argentinos</option><option value="USD">USD — Dólares</option></select></div>
             </div>
+            <div class="form-group" id="bloque-reparto" style="display:none;border:1px dashed #d9c48f;border-radius:8px;padding:12px;background:#fbf7ef;">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
+                    <label class="form-label" style="margin:0;">Partes del reparto</label>
+                    <div style="display:flex;align-items:center;gap:6px;font-size:13px;"><span>Dividir por:</span>
+                        <select class="form-select" id="rep-modo" style="width:auto;padding:4px 8px;" onchange="repRecalcular()"><option value="monto">Monto ($)</option><option value="pct">Porcentaje (%)</option></select>
+                    </div>
+                </div>
+                <div class="grid-2" style="margin-bottom:8px;">
+                    <div class="form-group" style="margin:0;"><label class="form-label">Total del comprobante *</label><input type="number" class="form-input" id="rep-total" placeholder="0" min="0" step="100" oninput="repRecalcular()"></div>
+                    <div class="form-group" style="margin:0;display:flex;align-items:flex-end;"><div class="form-hint" id="rep-resumen" style="margin:0;">—</div></div>
+                </div>
+                <div id="rep-partes"></div>
+                <button type="button" class="btn btn-outline" style="margin-top:6px;font-size:13px;padding:6px 10px;" onclick="repAgregarParte()">➕ Agregar programa</button>
+            </div>
             <div class="grid-2">
-                <div class="form-group"><label class="form-label">Monto Pagado</label><input type="number" class="form-input" id="g-monto-pagado" placeholder="0" min="0" step="100"><div class="form-hint">Solo si hay pago total o parcial</div></div>
+                <div class="form-group" id="fg-monto-pagado"><label class="form-label">Monto Pagado</label><input type="number" class="form-input" id="g-monto-pagado" placeholder="0" min="0" step="100"><div class="form-hint">Solo si hay pago total o parcial</div></div>
                 <div class="form-group" id="grp-tipo-cambio" style="display:none;"><label class="form-label">Tipo de cambio (ARS/USD)</label><input type="number" class="form-input" id="g-tipo-cambio" placeholder="ej: 1200" min="0" step="1"><div class="form-hint">Referencia al momento del pago</div></div>
             </div>
             <div class="form-group"><label class="form-label">Proveedor</label><input type="text" class="form-input" id="g-proveedor" placeholder="Nombre o razón social"></div>
@@ -321,6 +339,102 @@ function cargarCohortes(programaId) {
         + cohs.map(function(c){ return '<option value="'+c.cohorte_id+'">'+esc(c.nombre)+'</option>'; }).join('');
 }
 
+/* ── REPARTO (una factura dividida entre varios programas/cohortes) ── */
+var _repRowSeq = 0;
+function repFmt(n){ return '$' + Number(n||0).toLocaleString('es-AR'); }
+function repRound2(n){ return Math.round(Number(n||0)*100)/100; }
+function repProgOptions(sel) {
+    return '<option value="">— Programa —</option>'
+        + G.programas.map(function(p){ return '<option value="'+p.programa_id+'"'+(String(sel)===String(p.programa_id)?' selected':'')+'>'+esc(p.nombre)+'</option>'; }).join('');
+}
+function repCohOptions(programaId, sel) {
+    var cohs = G.cohortes.filter(function(c){ return String(c.programa_id)===String(programaId); });
+    return '<option value="">— Sin cohorte —</option>'
+        + cohs.map(function(c){ return '<option value="'+c.cohorte_id+'"'+(String(sel)===String(c.cohorte_id)?' selected':'')+'>'+esc(c.nombre)+'</option>'; }).join('');
+}
+function repAgregarParte(prog, coh, val) {
+    var i = ++_repRowSeq;
+    var wrap = document.createElement('div');
+    wrap.className = 'rep-parte';
+    wrap.id = 'rep-parte-' + i;
+    wrap.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 110px auto auto;gap:6px;align-items:center;margin-bottom:6px;';
+    wrap.innerHTML =
+        '<select class="form-select rep-prog" onchange="repProgChange(' + i + ')">' + repProgOptions(prog) + '</select>'
+      + '<select class="form-select rep-coh">' + repCohOptions(prog, coh) + '</select>'
+      + '<input type="number" class="form-input rep-val" placeholder="0" min="0" step="100" value="' + (val != null ? val : '') + '" oninput="repRecalcular()">'
+      + '<span class="rep-monto form-hint" style="margin:0;white-space:nowrap;">—</span>'
+      + '<button type="button" class="btn btn-outline" style="padding:4px 8px;" onclick="repQuitarParte(' + i + ')">🗑</button>';
+    document.getElementById('rep-partes').appendChild(wrap);
+    repRecalcular();
+}
+function repProgChange(i) {
+    var wrap = document.getElementById('rep-parte-' + i);
+    if (!wrap) return;
+    wrap.querySelector('.rep-coh').innerHTML = repCohOptions(wrap.querySelector('.rep-prog').value, '');
+}
+function repQuitarParte(i) {
+    var el = document.getElementById('rep-parte-' + i);
+    if (el) el.remove();
+    repRecalcular();
+}
+function repLeerPartes() {
+    return Array.prototype.map.call(document.querySelectorAll('#rep-partes .rep-parte'), function(w){
+        return {
+            programa_id: w.querySelector('.rep-prog').value || '',
+            cohorte_id:  w.querySelector('.rep-coh').value || '',
+            valor:       parseFloat(w.querySelector('.rep-val').value) || 0,
+            _wrap: w
+        };
+    });
+}
+function repRecalcular() {
+    var modo  = document.getElementById('rep-modo').value;
+    var total = parseFloat(document.getElementById('rep-total').value) || 0;
+    var partes = repLeerPartes();
+    var sumaVal = partes.reduce(function(a,p){ return a + p.valor; }, 0);
+    // Monto por parte + placeholder segun modo
+    partes.forEach(function(p){
+        p._wrap.querySelector('.rep-val').placeholder = (modo === 'pct' ? '%' : '$');
+        var m = (modo === 'pct') ? repRound2(total * p.valor / 100) : repRound2(p.valor);
+        p._wrap.querySelector('.rep-monto').textContent = (modo === 'pct') ? ('= ' + repFmt(m)) : repFmt(m);
+    });
+    var resumen = document.getElementById('rep-resumen');
+    if (modo === 'pct') {
+        var okPct = Math.abs(sumaVal - 100) < 0.01;
+        resumen.innerHTML = 'Suma: <strong>' + sumaVal + '%</strong> · Total: <strong>' + repFmt(total) + '</strong>'
+            + (okPct ? ' <span style="color:#2e7d32;">✅</span>' : ' <span style="color:#c62828;">⚠️ debe sumar 100%</span>');
+    } else {
+        var okMonto = total > 0 && Math.abs(sumaVal - total) < 0.01;
+        resumen.innerHTML = 'Suma partes: <strong>' + repFmt(sumaVal) + '</strong> de <strong>' + repFmt(total) + '</strong>'
+            + (okMonto ? ' <span style="color:#2e7d32;">✅</span>' : ' <span style="color:#c62828;">⚠️ debe igualar el total</span>');
+    }
+}
+function toggleReparto() {
+    var on = document.getElementById('g-reparto-on').checked;
+    document.getElementById('bloque-reparto').style.display = on ? 'block' : 'none';
+    ['fg-programa','fg-cohorte','fg-monto-original','fg-monto-pagado'].forEach(function(id){
+        var el = document.getElementById(id); if (el) el.style.display = on ? 'none' : '';
+    });
+    if (on && document.querySelectorAll('#rep-partes .rep-parte').length === 0) {
+        repAgregarParte(); repAgregarParte(); // arranca con 2 partes
+    }
+}
+function repResetear() {
+    var chk = document.getElementById('g-reparto-on');
+    if (chk) chk.checked = false;
+    var bloque = document.getElementById('bloque-reparto');
+    if (bloque) bloque.style.display = 'none';
+    var partes = document.getElementById('rep-partes');
+    if (partes) partes.innerHTML = '';
+    var total = document.getElementById('rep-total');
+    if (total) total.value = '';
+    var modo = document.getElementById('rep-modo');
+    if (modo) modo.value = 'monto';
+    ['fg-programa','fg-cohorte','fg-monto-original','fg-monto-pagado'].forEach(function(id){
+        var el = document.getElementById(id); if (el) el.style.display = '';
+    });
+}
+
 
 /* ── STATS ── */
 function renderStats() {
@@ -417,6 +531,12 @@ function renderTabla(tipo) {
     var pag = _pag[tipo];
     var slice = rows.slice((pag - 1) * POR_PAG, pag * POR_PAG);
 
+    // Reparto: una fila es parte de un reparto si es hija (egreso_padre_id) o si es
+    // la principal (otra fila la referencia como padre).
+    var padresReparto = {};
+    G.egresos.forEach(function(x){ if (x.egreso_padre_id) padresReparto[x.egreso_padre_id] = true; });
+    var esReparto = function(e){ return !!e.egreso_padre_id || !!padresReparto[e.egreso_id]; };
+
     tbody.innerHTML = slice.map(function(e) {
         var esEjec = esEjecutadoFn(e);
         var parc   = esParcialFn(e);
@@ -443,7 +563,7 @@ function renderTabla(tipo) {
             +'<td style="font-size:12px;">'+esc(e.cohorte_id?getNomCoh(e.cohorte_id):'—')+'</td>'
             + montoCell
             +'<td style="font-size:12px;">'+esc(e.proveedor||'—')+'</td>'
-            +'<td style="font-size:12px;">'+esc(e.nro_comprobante||'—')+'</td>'
+            +'<td style="font-size:12px;">'+esc(e.nro_comprobante||'—')+(esReparto(e)?' <span title="Parte de una factura repartida entre varios programas/cohortes" style="display:inline-block;background:#fbf7ef;border:1px solid #d9c48f;border-radius:6px;padding:0 5px;font-size:10px;color:#8a6d1f;white-space:nowrap;">🔗 reparto</span>':'')+'</td>'
             +'<td>'+badgeEstado(e.estado)+'</td>'
             +'<td>'+acciones+'</td>'
             +'</tr>';
@@ -468,6 +588,7 @@ function limpiarModal() {
     document.getElementById('g-moneda').value='ARS';
     document.getElementById('grp-tipo-cambio').style.display='none';
     document.getElementById('g-cohorte').innerHTML='<option value="">— Seleccionar programa —</option>';
+    repResetear();
 }
 
 function toggleTipoCambio() {
@@ -486,6 +607,7 @@ function abrirModalGasto(tipo, egresoId) {
         var e = G.egresos.find(function(x){ return x.egreso_id===egresoId; });
         if (e) {
             document.getElementById('modalTitulo').textContent  = '✏️ Editar Gasto';
+            document.getElementById('grp-reparto-toggle').style.display = 'none'; // el reparto solo se crea en gastos nuevos
             document.getElementById('g-id').value               = e.egreso_id;
             document.getElementById('g-tipo').value             = e.tipo;
             document.getElementById('g-concepto').value         = e.concepto||'';
@@ -509,6 +631,7 @@ function abrirModalGasto(tipo, egresoId) {
         }
     } else {
         document.getElementById('modalTitulo').textContent = tipo==='proyectados' ? '➕ Nuevo Gasto Proyectado' : '➕ Nuevo Gasto Ejecutado';
+        document.getElementById('grp-reparto-toggle').style.display = ''; // reparto disponible solo en gastos nuevos
     }
     document.getElementById('modalGasto').classList.add('active');
 }
@@ -520,6 +643,8 @@ async function guardarGasto() {
     var programaId = document.getElementById('g-programa').value;
     if (!concepto)  { toast('Ingresá el concepto','err'); return; }
     if (!categoria) { toast('Seleccioná una categoría','err'); return; }
+    // Reparto: una factura dividida entre varios programas/cohortes (solo en gastos nuevos)
+    if (!id && document.getElementById('g-reparto-on').checked) { return guardarReparto(); }
     if (!programaId){ toast('Seleccioná un programa','err'); return; }
 
     var montoOrig = parseFloat(document.getElementById('g-monto-original').value)||null;
@@ -557,6 +682,89 @@ async function guardarGasto() {
         cerrarModal('modalGasto');
         await cargar();
     } catch(e) { console.error(e); toast('Error: '+e.message,'err'); }
+    finally { spin(false); }
+}
+
+/* ── GUARDAR REPARTO (N egresos: 1 principal + hijos que comparten comprobante) ── */
+async function guardarReparto() {
+    var concepto  = document.getElementById('g-concepto').value.trim();
+    var categoria = document.getElementById('g-categoria').value;
+    var modo      = document.getElementById('rep-modo').value;
+    var total     = parseFloat(document.getElementById('rep-total').value) || 0;
+    if (!(total > 0)) { toast('Ingresá el total del comprobante','err'); return; }
+
+    var partes = repLeerPartes();
+    if (partes.length < 2) { toast('Un reparto necesita al menos 2 programas','err'); return; }
+    for (var i=0; i<partes.length; i++) {
+        if (!partes[i].programa_id) { toast('Falta el programa en una de las partes','err'); return; }
+    }
+
+    // Monto de cada parte (ajustando la última para que cuadre exacto con el total)
+    var montos = [];
+    if (modo === 'pct') {
+        var sumaPct = partes.reduce(function(a,p){ return a + p.valor; }, 0);
+        if (Math.abs(sumaPct - 100) > 0.01) { toast('Los porcentajes deben sumar 100%','err'); return; }
+        var acum = 0;
+        partes.forEach(function(p, idx){
+            var m = (idx === partes.length-1) ? repRound2(total - acum) : repRound2(total * p.valor / 100);
+            acum = repRound2(acum + m); montos.push(m);
+        });
+    } else {
+        var sumaMonto = partes.reduce(function(a,p){ return a + p.valor; }, 0);
+        if (Math.abs(sumaMonto - total) > 0.01) { toast('La suma de las partes debe igualar el total','err'); return; }
+        montos = partes.map(function(p){ return repRound2(p.valor); });
+    }
+    if (montos.some(function(m){ return !(m > 0); })) { toast('Cada parte debe tener un monto mayor a cero','err'); return; }
+
+    // Campos comunes a todas las partes
+    var moneda     = document.getElementById('g-moneda').value || 'ARS';
+    var tipoCambio = parseFloat(document.getElementById('g-tipo-cambio').value) || null;
+    var tipo       = document.getElementById('g-tipo').value;
+    var estado     = document.getElementById('g-estado').value || 'PENDIENTE';
+    var ejecutado  = (estado === 'CANCELADO' || tipo === 'EJECUTADO');
+    var obsBase    = document.getElementById('g-observaciones').value.trim();
+    var obs        = (moneda === 'USD' && tipoCambio) ? ('TC: ' + tipoCambio + (obsBase ? ' — ' + obsBase : '')) : (obsBase || null);
+    var comun = {
+        tipo: tipo, estado: estado, concepto: concepto, categoria: categoria, moneda: moneda,
+        proveedor:         document.getElementById('g-proveedor').value.trim() || null,
+        nro_comprobante:   document.getElementById('g-comprobante').value.trim() || null,
+        fecha_comprobante: document.getElementById('g-fecha-comprobante').value || null,
+        observaciones:     obs,
+        fecha_estimada:    document.getElementById('g-fecha-estimada').value || null,
+        fecha_pago:        document.getElementById('g-fecha-pago').value || null
+    };
+    function armarParte(p, monto, padreId) {
+        var o = Object.assign({}, comun, {
+            programa_id:     p.programa_id,
+            cohorte_id:      p.cohorte_id || null,
+            monto_original:  monto,
+            monto_pagado:    ejecutado ? monto : null,
+            monto_pendiente: ejecutado ? 0 : monto
+        });
+        if (padreId) o.egreso_padre_id = padreId;
+        return o;
+    }
+
+    spin(true);
+    try {
+        var sb = await getSupabase();
+        // 1) Parte principal (egreso_padre_id NULL)
+        var resP = await sb.from('egresos').insert(armarParte(partes[0], montos[0], null)).select('egreso_id').single();
+        if (resP.error) throw resP.error;
+        var padreId = resP.data.egreso_id;
+        // 2) Partes hijas (apuntan a la principal)
+        var hijos = [];
+        for (var j=1; j<partes.length; j++) { hijos.push(armarParte(partes[j], montos[j], padreId)); }
+        var resH = await sb.from('egresos').insert(hijos);
+        if (resH.error) {
+            // Rollback manual: sin la principal, no dejamos media factura cargada
+            await sb.from('egresos').delete().eq('egreso_id', padreId);
+            throw resH.error;
+        }
+        toast('Reparto creado ✓ (' + partes.length + ' partes)', 'ok');
+        cerrarModal('modalGasto');
+        await cargar();
+    } catch(e) { console.error(e); toast('Error al crear reparto: ' + e.message, 'err'); }
     finally { spin(false); }
 }
 
@@ -637,13 +845,31 @@ async function confirmarEjecucion() {
 /* ── ELIMINAR ── */
 async function eliminarGasto(egresoId) {
     var e = G.egresos.find(function(x){ return x.egreso_id===egresoId; });
-    if (!confirm('¿Eliminar "'+esc(e?e.concepto:'este gasto')+'"?\nEsta acción no se puede deshacer.')) return;
+    // ¿Es parte de un reparto? El grupo es la principal + sus hijas.
+    var padreId = (e && e.egreso_padre_id) ? e.egreso_padre_id : (e ? e.egreso_id : egresoId);
+    var grupo   = G.egresos.filter(function(x){ return x.egreso_id===padreId || x.egreso_padre_id===padreId; });
+    var esReparto = grupo.length > 1;
+
+    var ids;
+    if (esReparto) {
+        if (!confirm('Este gasto es parte de una factura REPARTIDA en '+grupo.length+' programas (comprobante '+((e&&e.nro_comprobante)||'—')+').\n\n'
+                   + 'Aceptar = borrar TODO el reparto ('+grupo.length+' partes).\nCancelar = no borrar nada.')) return;
+        // Borrar hijas primero y la principal al final (por si hubiera integridad referencial).
+        ids = grupo.filter(function(x){ return x.egreso_id!==padreId; }).map(function(x){ return x.egreso_id; });
+        ids.push(padreId);
+    } else {
+        if (!confirm('¿Eliminar "'+esc(e?e.concepto:'este gasto')+'"?\nEsta acción no se puede deshacer.')) return;
+        ids = [egresoId];
+    }
+
     spin(true);
     try {
         var sb = await getSupabase();
-        var res = await sb.from('egresos').delete().eq('egreso_id',egresoId);
-        if (res.error) throw res.error;
-        toast('Gasto eliminado ✓','ok');
+        for (var k=0; k<ids.length; k++) {
+            var res = await sb.from('egresos').delete().eq('egreso_id', ids[k]);
+            if (res.error) throw res.error;
+        }
+        toast(esReparto ? ('Reparto eliminado ✓ ('+ids.length+' partes)') : 'Gasto eliminado ✓','ok');
         await cargar();
     } catch(e) { console.error(e); toast('Error: '+e.message,'err'); }
     finally { spin(false); }
