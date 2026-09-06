@@ -185,6 +185,7 @@
         <div class="modal-body">
             <input type="hidden" id="g-id">
             <input type="hidden" id="g-tipo">
+            <div id="aviso-reparto-edit" style="display:none;background:#fbf7ef;border:1px dashed #d9c48f;border-radius:8px;padding:9px 11px;margin-bottom:12px;font-size:12.5px;color:#8a6d1f;">🔗 <strong>Esta cuota es parte de una factura repartida.</strong> Si cambiás el monto, dejará de coincidir con el total de la factura. Para corregir un reparto conviene borrarlo y volver a cargarlo.</div>
             <div class="grid-2">
                 <div class="form-group"><label class="form-label">Fecha Estimada</label><input type="date" class="form-input" id="g-fecha-estimada"></div>
                 <div class="form-group"><label class="form-label">Fecha de Pago <span style="color:#aaa;font-weight:400;">(si ejecutado)</span></label><input type="date" class="form-input" id="g-fecha-pago"></div>
@@ -433,6 +434,7 @@ function repResetear() {
     ['fg-programa','fg-cohorte','fg-monto-original','fg-monto-pagado'].forEach(function(id){
         var el = document.getElementById(id); if (el) el.style.display = '';
     });
+    var _av = document.getElementById('aviso-reparto-edit'); if (_av) _av.style.display = 'none';
 }
 
 
@@ -608,6 +610,8 @@ function abrirModalGasto(tipo, egresoId) {
         if (e) {
             document.getElementById('modalTitulo').textContent  = '✏️ Editar Gasto';
             document.getElementById('grp-reparto-toggle').style.display = 'none'; // el reparto solo se crea en gastos nuevos
+            var _padresRep = {}; G.egresos.forEach(function(x){ if (x.egreso_padre_id) _padresRep[x.egreso_padre_id] = true; });
+            document.getElementById('aviso-reparto-edit').style.display = (e.egreso_padre_id || _padresRep[e.egreso_id]) ? 'block' : 'none';
             document.getElementById('g-id').value               = e.egreso_id;
             document.getElementById('g-tipo').value             = e.tipo;
             document.getElementById('g-concepto').value         = e.concepto||'';

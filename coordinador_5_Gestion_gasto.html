@@ -345,6 +345,7 @@
                 <button class="modal-close" onclick="cerrarModal('modalGasto')">×</button>
             </div>
             <div class="modal-body">
+                <div id="aviso-reparto-edit" style="display:none;background:#fbf7ef;border:1px dashed #d9c48f;border-radius:8px;padding:9px 11px;margin-bottom:12px;font-size:12.5px;color:#8a6d1f;">🔗 <strong>Esta cuota es parte de una factura repartida.</strong> Si cambiás el monto, dejará de coincidir con el total de la factura. Para corregir un reparto conviene borrarlo y volver a cargarlo.</div>
                 <div class="grid-2">
                     <div class="form-group">
                         <label class="form-label">Fecha Estimada</label>
@@ -880,6 +881,7 @@
             ['fg-programa','fg-cohorte','fg-monto'].forEach(function(id){
                 var el = document.getElementById(id); if (el) el.style.display = '';
             });
+            var _av = document.getElementById('aviso-reparto-edit'); if (_av) _av.style.display = 'none';
         }
         async function guardarRepartoCoord() {
             var concepto  = document.getElementById('concepto').value.trim();
@@ -1087,6 +1089,9 @@
             document.getElementById('modalTitulo').textContent = 'Editar Gasto';
             repResetear();
             document.getElementById('grp-reparto-toggle').style.display = 'none'; // reparto solo en gastos nuevos
+            var _todosG = state.gastos.proyectados.concat(state.gastos.ejecutados);
+            var _padresRep = {}; _todosG.forEach(function(x){ if (x.egresoPadreId) _padresRep[x.egresoPadreId] = true; });
+            document.getElementById('aviso-reparto-edit').style.display = (gasto.egresoPadreId || _padresRep[gasto.id]) ? 'block' : 'none';
             document.getElementById('fechaEstimada').value = gasto.fechaEstimada || '';
             document.getElementById('categoria').value = gasto.categoria || CATEGORIAS[0];
             document.getElementById('concepto').value = gasto.concepto || '';
