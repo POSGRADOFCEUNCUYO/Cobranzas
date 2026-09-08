@@ -204,6 +204,22 @@
                 <div class="program-card" style="grid-column:1/-1;text-align:center;color:#aaa;padding:24px;">Cargando datos…</div>
             </div>
 
+            <h3 style="font-size:16px;font-weight:700;color:var(--primary);margin:8px 0 12px;">Detalle por programa (todos)</h3>
+            <div style="overflow-x:auto;">
+                <table id="tabla-detalle">
+                    <thead><tr>
+                        <th>Programa / Curso</th>
+                        <th style="text-align:center;">Estudiantes activos</th>
+                        <th>Recaudado</th>
+                        <th>Esperado</th>
+                        <th style="text-align:center;">Tasa de cobro</th>
+                    </tr></thead>
+                    <tbody id="tabla-detalle-body">
+                        <tr><td colspan="5" style="text-align:center;color:#aaa;padding:20px;">Cargando datos…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
             <div class="actions">
                 <button class="btn btn-export" onclick="exportarExcel()">📥 Exportar a Excel</button>
                 <button class="btn btn-primary" onclick="exportarPDF()">📄 Exportar a PDF</button>
@@ -397,6 +413,41 @@ async function cargarDatos() {
                     + '<div class="stat-item"><div class="stat-label">Tasa</div><div class="stat-value" style="font-size:15px;">'+tasa+'%</div></div></div>'
                     + '<div class="progress-bar"><div class="progress-fill" style="width:'+Math.min(100,parseFloat(tasa))+'%"></div></div></div>';
             }).join('');
+        }
+
+        // ── Tabla de detalle: TODOS los programas (mismo cálculo que las tarjetas) + habilita exportar a Excel ──
+        var _pidSet = {};
+        cobros.forEach(function(c){ if (c.programa_id != null) _pidSet[c.programa_id] = true; });
+        var filasProg = Object.keys(_pidSet).map(function(pid) {
+            var cobrosP = cobros.filter(function(c){ return String(c.programa_id) === String(pid); });
+            var espArs = 0, espUsd = 0, recArs = 0, recUsd = 0, dnisP = {};
+            cobrosP.forEach(function(c) {
+                var mf = Number(c.monto_final || 0);
+                var esUsd = c.moneda === 'USD';
+                if (c._re !== 'A_DEFINIR' && c._re !== 'NO_APLICA') { if (esUsd) espUsd += mf; else espArs += mf; }
+                var ab = calcMontoAbonado(c);
+                if (ab > 0) { if (esUsd) recUsd += ab; else recArs += ab; if (c.dni) dnisP[c.dni] = true; }
+            });
+            return { nombre: (progMap[pid] || ('Programa ' + pid)), est: Object.keys(dnisP).length,
+                     recArs: recArs, recUsd: recUsd, espArs: espArs, espUsd: espUsd,
+                     tasa: (espArs > 0 ? (recArs / espArs * 100) : 0) };
+        }).sort(function(a, b){ return b.recArs - a.recArs; });
+
+        var tbody = document.getElementById('tabla-detalle-body');
+        if (tbody) {
+            var filasHtml = filasProg.map(function(f) {
+                return '<tr><td>' + esc(f.nombre) + '</td>'
+                    + '<td style="text-align:center;">' + f.est + '</td>'
+                    + '<td>' + fMontoDual(f.recArs, f.recUsd) + '</td>'
+                    + '<td>' + fMontoDual(f.espArs, f.espUsd) + '</td>'
+                    + '<td style="text-align:center;">' + f.tasa.toFixed(1) + '%</td></tr>';
+            }).join('');
+            filasHtml += '<tr style="font-weight:700;background:#f8f6f1;"><td>TOTAL</td>'
+                + '<td style="text-align:center;">' + estudiantesActivos + '</td>'
+                + '<td>' + fMontoDual(totalRecaudadoArs, totalRecaudadoUsd) + '</td>'
+                + '<td>' + fMontoDual(totalEsperadoArs, totalEsperadoUsd) + '</td>'
+                + '<td style="text-align:center;">' + tasaCobro.toFixed(1) + '%</td></tr>';
+            tbody.innerHTML = filasHtml;
         }
 
         // Update filter band
