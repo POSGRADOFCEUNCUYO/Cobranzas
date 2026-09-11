@@ -371,9 +371,13 @@ function renderDashboard(data) {
 
     var rEl = document.getElementById('stat-readmisiones');
     if (rEl) {
-        rEl.textContent = data.totalReadmisiones || 0;
+        var totalReadm = data.totalReadmisiones || 0;
+        var pendReadm = data.totalReadmisionesPendientes || 0;
+        var pagaronReadm = totalReadm - pendReadm;
+        if (pagaronReadm < 0) pagaronReadm = 0;
+        rEl.textContent = totalReadm;
         var rPend = document.getElementById('stat-readmisiones-pend');
-        if (rPend && data.totalReadmisionesPendientes) rPend.textContent = data.totalReadmisionesPendientes + ' pendientes';
+        if (rPend) rPend.textContent = pagaronReadm + ' pagaron · ' + pendReadm + ' pendientes';
     }
 
     if (data.nombreAdmin) {
