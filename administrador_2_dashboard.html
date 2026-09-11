@@ -377,7 +377,7 @@ function renderDashboard(data) {
         if (pagaronReadm < 0) pagaronReadm = 0;
         rEl.textContent = totalReadm;
         var rPend = document.getElementById('stat-readmisiones-pend');
-        if (rPend) rPend.textContent = pagaronReadm + ' pagaron · ' + pendReadm + ' pendientes';
+        if (rPend) rPend.textContent = pagaronReadm + ' cancelaron · ' + pendReadm + ' pendientes';
     }
 
     if (data.nombreAdmin) {
