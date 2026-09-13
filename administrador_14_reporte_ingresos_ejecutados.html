@@ -426,17 +426,19 @@ async function cargarDatos() {
                     var mf = Number(c.monto_final || 0);
                     var sp = Number(c.saldo_pendiente || 0);
                     var esUsd = c.moneda === 'USD';
-                    if (c._re !== 'A_DEFINIR' && c._re !== 'NO_APLICA') { if (esUsd) esperadoUsd += mf; else esperadoArs += mf; }
+                    var vale = (c._re !== 'A_DEFINIR' && c._re !== 'NO_APLICA');
+                    if (vale && mesLlego(c)) { if (esUsd) esperadoUsd += mf; else esperadoArs += mf; }
                     var _abP = calcMontoAbonado(c);
-                    if (_abP > 0) { if (esUsd) recaudadoUsd += _abP; else recaudadoArs += _abP; if(c.dni) dnisP[c.dni]=true; }
+                    if (_abP > 0 && mesLlego(c)) { if (esUsd) recaudadoUsd += _abP; else recaudadoArs += _abP; }
+                    if (_abP > 0 && c.dni) dnisP[c.dni] = true;
                 });
-                // Tasa: solo ARS (no se mezclan monedas)
+                // Tarjeta "a la fecha": esperado y recaudado de cuotas cuyo mes ya llegó. Solo ARS en la tasa.
                 var tasa = esperadoArs > 0 ? (recaudadoArs / esperadoArs * 100).toFixed(1) : '0.0';
                 var est = Object.keys(dnisP).length;
                 return '<div class="program-card"><div class="program-header"><div><div class="program-name">'+nombre+'</div><div class="program-cohorte">'+est+' estudiantes activos</div></div></div>'
                     + '<div class="program-stats"><div class="stat-item"><div class="stat-label">Recaudado</div><div class="stat-value" style="font-size:15px;">'+fMontoDual(recaudadoArs, recaudadoUsd)+'</div></div>'
-                    + '<div class="stat-item"><div class="stat-label">Esperado</div><div class="stat-value" style="font-size:15px;">'+fMontoDual(esperadoArs, esperadoUsd)+'</div></div>'
-                    + '<div class="stat-item"><div class="stat-label">Tasa</div><div class="stat-value" style="font-size:15px;">'+tasa+'%</div></div></div>'
+                    + '<div class="stat-item"><div class="stat-label">Esperado a la fecha</div><div class="stat-value" style="font-size:15px;">'+fMontoDual(esperadoArs, esperadoUsd)+'</div></div>'
+                    + '<div class="stat-item"><div class="stat-label">Tasa a la fecha</div><div class="stat-value" style="font-size:15px;">'+tasa+'%</div></div></div>'
                     + '<div class="progress-bar"><div class="progress-fill" style="width:'+Math.min(100,parseFloat(tasa))+'%"></div></div></div>';
             }).join('');
         }
