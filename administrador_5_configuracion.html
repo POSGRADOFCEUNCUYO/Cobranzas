@@ -198,6 +198,32 @@
         <button class="btn-save" onclick="guardar('descuentos', this)">💾 Guardar Configuración de Descuentos</button>
     </div>
 
+    <!-- ETIQUETAS DE GASTOS (CATEGORÍAS) -->
+    <div class="config-section">
+        <h2 class="section-title">🏷️ Etiquetas de Gastos (Categorías)</h2>
+        <div class="note-box">
+            📋 Son las categorías que se eligen al cargar un gasto/egreso. Al <strong>renombrar</strong> una etiqueta, los gastos ya cargados con ese nombre se actualizan solos. No se puede eliminar una etiqueta que esté en uso.
+        </div>
+        <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:stretch;">
+            <input type="text" id="nueva-cat-nombre" placeholder="Nombre de la nueva etiqueta…" maxlength="60"
+                style="flex:1;min-width:200px;padding:10px 14px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;font-family:'DM Sans',sans-serif;outline:none;transition:border-color 0.2s;"
+                onfocus="this.style.borderColor='#5C1018'" onblur="this.style.borderColor='#e0e0e0'"
+                onkeydown="if(event.key==='Enter')agregarCatGasto()">
+            <select id="nueva-cat-tipo" style="padding:10px 12px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;font-family:'DM Sans',sans-serif;background:white;">
+                <option value="FIJO">Fijo</option>
+                <option value="VARIABLE">Variable</option>
+                <option value="AJUSTABLE">Ajustable</option>
+                <option value="OPERATIVO">Operativo</option>
+                <option value="CRITICO">Crítico</option>
+            </select>
+            <button onclick="agregarCatGasto()" style="padding:10px 22px;background:var(--primary);color:white;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;font-family:'DM Sans',sans-serif;">+ Agregar</button>
+        </div>
+        <div id="cat-gasto-error" style="display:none;color:var(--clr-danger);font-size:13px;margin-bottom:10px;padding:8px 12px;background:#fdecea;border-radius:6px;border-left:3px solid var(--clr-danger);"></div>
+        <div id="cat-gasto-list" class="config-grid"><div style="padding:16px;text-align:center;color:#aaa;">Cargando…</div></div>
+        <div id="msg-catgastos" class="msg-ok"></div>
+        <div id="err-catgastos" class="msg-err"></div>
+    </div>
+
     <!-- BANCO -->
     <div class="config-section">
         <h2 class="section-title">🏦 Datos Bancarios de Cooperadora</h2>
@@ -355,6 +381,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     } catch(e) {
         console.error('Error cargando configuración:', e);
     }
+    cargarCatGastos();
     if (typeof obtenerNotificaciones === 'function') {
         obtenerNotificaciones('ADMINISTRADOR').then(renderNotificaciones);
     }
@@ -530,6 +557,153 @@ function eliminarEtiqueta(idx) {
 
 function mostrarEtError(msg) {
     var el = document.getElementById('etiqueta-error');
+    el.textContent = msg; el.style.display = 'block';
+    setTimeout(function(){ el.style.display = 'none'; }, 3000);
+}
+
+/* ══════════════════════════════════
+   ETIQUETAS DE GASTOS (categorias_gastos)
+══════════════════════════════════ */
+var TIPOS_GASTO = [
+    {v:'FIJO', l:'Fijo'}, {v:'VARIABLE', l:'Variable'}, {v:'AJUSTABLE', l:'Ajustable'},
+    {v:'OPERATIVO', l:'Operativo'}, {v:'CRITICO', l:'Crítico'}
+];
+var catsGasto = [];
+
+async function cargarCatGastos() {
+    var cont = document.getElementById('cat-gasto-list');
+    try {
+        var sb = await getSupabase();
+        var r = await sb.from('categorias_gastos').select('id,nombre,tipo').order('nombre');
+        if (r.error) throw r.error;
+        catsGasto = r.data || [];
+        renderCatGastos();
+    } catch(e) {
+        console.error('Error cargando categorías de gastos:', e);
+        cont.innerHTML = '<div style="padding:14px;color:var(--clr-danger);">No se pudieron cargar las etiquetas: ' + (e.message || e) + '</div>';
+    }
+}
+
+function renderCatGastos() {
+    var cont = document.getElementById('cat-gasto-list');
+    cont.innerHTML = '';
+    if (!catsGasto.length) {
+        cont.innerHTML = '<div style="padding:14px;color:#aaa;font-style:italic;">No hay etiquetas creadas.</div>';
+        return;
+    }
+    catsGasto.forEach(function(cat) {
+        var row = document.createElement('div');
+        row.className = 'config-item';
+        row.style.gap = '10px';
+        row.style.flexWrap = 'wrap';
+
+        var nombre = document.createElement('input');
+        nombre.type = 'text';
+        nombre.value = cat.nombre;
+        nombre.maxLength = 60;
+        nombre.style.cssText = 'flex:1;min-width:180px;padding:9px 12px;border:2px solid #e0e0e0;border-radius:6px;font-size:14px;font-family:inherit;';
+
+        var tipo = document.createElement('select');
+        tipo.style.cssText = 'padding:9px 12px;border:2px solid #e0e0e0;border-radius:6px;font-size:14px;font-family:inherit;background:white;';
+        TIPOS_GASTO.forEach(function(t) {
+            var op = document.createElement('option');
+            op.value = t.v; op.textContent = t.l;
+            if (t.v === cat.tipo) op.selected = true;
+            tipo.appendChild(op);
+        });
+
+        var bGuardar = document.createElement('button');
+        bGuardar.textContent = 'Guardar';
+        bGuardar.style.cssText = 'padding:9px 16px;background:var(--primary);color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;flex-shrink:0;font-family:inherit;';
+        bGuardar.onclick = function(){ guardarCatGasto(cat, nombre.value, tipo.value, bGuardar); };
+
+        var bBorrar = document.createElement('button');
+        bBorrar.textContent = '🗑';
+        bBorrar.title = 'Eliminar';
+        bBorrar.style.cssText = 'padding:9px 12px;background:#fdecea;color:#9b1a0d;border:1px solid #f5c6cb;border-radius:6px;font-size:14px;cursor:pointer;flex-shrink:0;';
+        bBorrar.onclick = function(){ eliminarCatGasto(cat); };
+
+        row.appendChild(nombre);
+        row.appendChild(tipo);
+        row.appendChild(bGuardar);
+        row.appendChild(bBorrar);
+        cont.appendChild(row);
+    });
+}
+
+async function agregarCatGasto() {
+    var input = document.getElementById('nueva-cat-nombre');
+    var tipo  = document.getElementById('nueva-cat-tipo').value;
+    var nombre = input.value.trim();
+    if (!nombre) { mostrarCatError('Ingresá un nombre para la etiqueta.'); input.focus(); return; }
+    if (catsGasto.some(function(c){ return c.nombre.toLowerCase() === nombre.toLowerCase(); })) {
+        mostrarCatError('Ya existe la etiqueta "' + nombre + '".'); input.focus(); return;
+    }
+    try {
+        var sb = await getSupabase();
+        var r = await sb.from('categorias_gastos').insert({ nombre: nombre, tipo: tipo }).select('id,nombre,tipo').single();
+        if (r.error) throw r.error;
+        input.value = '';
+        await cargarCatGastos();
+        mostrarMsg('catgastos', true, '✅ Etiqueta "' + nombre + '" creada.');
+    } catch(e) {
+        console.error(e);
+        mostrarMsg('catgastos', false, '❌ No se pudo crear: ' + (e.message || e));
+    }
+}
+
+async function guardarCatGasto(cat, nuevoNombre, nuevoTipo, btn) {
+    nuevoNombre = (nuevoNombre || '').trim();
+    if (!nuevoNombre) { mostrarMsg('catgastos', false, '❌ El nombre no puede quedar vacío.'); return; }
+    if (catsGasto.some(function(c){ return c.id !== cat.id && c.nombre.toLowerCase() === nuevoNombre.toLowerCase(); })) {
+        mostrarMsg('catgastos', false, '❌ Ya existe otra etiqueta con ese nombre.'); return;
+    }
+    var textoOrig = btn.textContent;
+    btn.disabled = true; btn.textContent = '…';
+    try {
+        var sb = await getSupabase();
+        var r = await sb.from('categorias_gastos').update({ nombre: nuevoNombre, tipo: nuevoTipo }).eq('id', cat.id);
+        if (r.error) throw r.error;
+        var msg = '✅ Etiqueta actualizada.';
+        // Si cambió el nombre, actualizar los egresos que la usaban (categoria se guarda por nombre)
+        if (nuevoNombre !== cat.nombre) {
+            var ru = await sb.from('egresos').update({ categoria: nuevoNombre }).eq('categoria', cat.nombre);
+            if (ru.error) throw ru.error;
+            msg = '✅ Etiqueta renombrada y gastos asociados actualizados.';
+        }
+        await cargarCatGastos();
+        mostrarMsg('catgastos', true, msg);
+    } catch(e) {
+        console.error(e);
+        mostrarMsg('catgastos', false, '❌ No se pudo guardar: ' + (e.message || e));
+    } finally {
+        btn.disabled = false; btn.textContent = textoOrig;
+    }
+}
+
+async function eliminarCatGasto(cat) {
+    try {
+        var sb = await getSupabase();
+        // Chequear que no esté en uso por ningún egreso
+        var uso = await sb.from('egresos').select('egreso_id', { count: 'exact', head: true }).eq('categoria', cat.nombre);
+        if (uso.error) throw uso.error;
+        if ((uso.count || 0) > 0) {
+            mostrarMsg('catgastos', false, '❌ No se puede eliminar "' + cat.nombre + '": está en uso por ' + uso.count + ' gasto(s). Renombrala o reasigná esos gastos primero.');
+            return;
+        }
+        if (!confirm('¿Eliminar la etiqueta "' + cat.nombre + '"?')) return;
+        var r = await sb.from('categorias_gastos').delete().eq('id', cat.id);
+        if (r.error) throw r.error;
+        await cargarCatGastos();
+        mostrarMsg('catgastos', true, '✅ Etiqueta eliminada.');
+    } catch(e) {
+        console.error(e);
+        mostrarMsg('catgastos', false, '❌ No se pudo eliminar: ' + (e.message || e));
+    }
+}
+
+function mostrarCatError(msg) {
+    var el = document.getElementById('cat-gasto-error');
     el.textContent = msg; el.style.display = 'block';
     setTimeout(function(){ el.style.display = 'none'; }, 3000);
 }
