@@ -195,6 +195,11 @@
                 <div class="summary-value">—</div>
                 <div class="summary-change">Por estudiante activo</div>
             </div>
+            <div class="summary-card">
+                <div class="summary-label">Esperado a la fecha</div>
+                <div class="summary-value">—</div>
+                <div class="summary-change">Cuotas del mes en curso y anteriores</div>
+            </div>
         </div>
 
         <!-- TARJETAS POR PROGRAMA -->
@@ -213,9 +218,11 @@
                         <th>Recaudado</th>
                         <th>Esperado</th>
                         <th style="text-align:center;">Tasa de cobro</th>
+                        <th>Esperado a la fecha</th>
+                        <th style="text-align:center;">Tasa a la fecha</th>
                     </tr></thead>
                     <tbody id="tabla-detalle-body">
-                        <tr><td colspan="5" style="text-align:center;color:#aaa;padding:20px;">Cargando datos…</td></tr>
+                        <tr><td colspan="7" style="text-align:center;color:#aaa;padding:20px;">Cargando datos…</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -277,23 +284,41 @@ async function cargarDatos() {
 
         // Stat calculations
         var anoActual = new Date().getFullYear();
+        // ── "A la fecha": cuota cuyo mes ya llegó (mes actual o anteriores, desde el día 1),
+        //    sin importar si su día de vencimiento ya pasó. Usa monto_final (con recargo de mora).
+        var _hoyD = new Date();
+        var _mm = _hoyD.getMonth() + 1;
+        var _mesActual = _hoyD.getFullYear() + '-' + (_mm < 10 ? '0' : '') + _mm; // 'YYYY-MM'
+        function mesLlego(c) {
+            var fv = c && c.fecha_vencimiento ? String(c.fecha_vencimiento).substring(0, 7) : null;
+            if (!fv) return true; // cuota sin fecha de vencimiento => se considera corriente
+            return fv <= _mesActual;
+        }
         var totalRecaudadoArs = 0, totalRecaudadoUsd = 0, totalEsperadoArs = 0, totalEsperadoUsd = 0;
+        var totalEspAFechaArs = 0, totalEspAFechaUsd = 0, totalRecAFechaArs = 0, totalRecAFechaUsd = 0;
         var dnisActivos = {};
         cobros.forEach(function(c) {
             var mf = Number(c.monto_final || 0);
             var sp = Number(c.saldo_pendiente || 0);
             var est = c._re;
             var esUsd = c.moneda === 'USD';
-            if (est !== 'A_DEFINIR' && est !== 'NO_APLICA') { if (esUsd) totalEsperadoUsd += mf; else totalEsperadoArs += mf; }
+            var _vale = (est !== 'A_DEFINIR' && est !== 'NO_APLICA');
+            if (_vale) { if (esUsd) totalEsperadoUsd += mf; else totalEsperadoArs += mf; }
             var _ab = calcMontoAbonado(c);
             if (_ab > 0) {
                 if (esUsd) totalRecaudadoUsd += _ab; else totalRecaudadoArs += _ab;
                 if (c.dni) dnisActivos[c.dni] = true;
             }
+            // Métricas "a la fecha" (mismo criterio, restringido a cuotas cuyo mes ya llegó)
+            if (mesLlego(c)) {
+                if (_vale) { if (esUsd) totalEspAFechaUsd += mf; else totalEspAFechaArs += mf; }
+                if (_ab > 0) { if (esUsd) totalRecAFechaUsd += _ab; else totalRecAFechaArs += _ab; }
+            }
         });
         var estudiantesActivos = Object.keys(dnisActivos).length;
         // Tasa de cobro: solo ARS (no se mezclan monedas)
         var tasaCobro = totalEsperadoArs > 0 ? (totalRecaudadoArs / totalEsperadoArs * 100) : 0;
+        var tasaAFecha = totalEspAFechaArs > 0 ? (totalRecAFechaArs / totalEspAFechaArs * 100) : 0;
         var promPorEst = estudiantesActivos > 0 ? totalRecaudadoArs / estudiantesActivos : 0;
 
         // Update summary cards
@@ -302,6 +327,7 @@ async function cargarDatos() {
         if (cards[1]) { cards[1].querySelector('.summary-value').textContent = estudiantesActivos; cards[1].querySelector('.summary-change').textContent = 'Con al menos 1 pago'; }
         if (cards[2]) { cards[2].querySelector('.summary-value').textContent = tasaCobro.toFixed(1) + '%'; cards[2].querySelector('.summary-change').textContent = 'Recaudado / esperado (ARS)'; }
         if (cards[3]) { cards[3].querySelector('.summary-value').textContent = fMontoDual(promPorEst, 0); cards[3].querySelector('.summary-change').textContent = 'Por estudiante activo (ARS)'; }
+        if (cards[4]) { cards[4].querySelector('.summary-value').textContent = fMontoDual(totalEspAFechaArs, totalEspAFechaUsd); cards[4].querySelector('.summary-change').textContent = 'Tasa a la fecha: ' + tasaAFecha.toFixed(1) + '% (ARS)'; }
 
         // Monthly chart — group by mes of fecha_pago, per program (top 5)
         // Count recaudado per program
@@ -421,16 +447,24 @@ async function cargarDatos() {
         var filasProg = Object.keys(_pidSet).map(function(pid) {
             var cobrosP = cobros.filter(function(c){ return String(c.programa_id) === String(pid); });
             var espArs = 0, espUsd = 0, recArs = 0, recUsd = 0, dnisP = {};
+            var espAFArs = 0, espAFUsd = 0, recAFArs = 0, recAFUsd = 0;
             cobrosP.forEach(function(c) {
                 var mf = Number(c.monto_final || 0);
                 var esUsd = c.moneda === 'USD';
-                if (c._re !== 'A_DEFINIR' && c._re !== 'NO_APLICA') { if (esUsd) espUsd += mf; else espArs += mf; }
+                var vale = (c._re !== 'A_DEFINIR' && c._re !== 'NO_APLICA');
+                if (vale) { if (esUsd) espUsd += mf; else espArs += mf; }
                 var ab = calcMontoAbonado(c);
                 if (ab > 0) { if (esUsd) recUsd += ab; else recArs += ab; if (c.dni) dnisP[c.dni] = true; }
+                if (mesLlego(c)) {
+                    if (vale) { if (esUsd) espAFUsd += mf; else espAFArs += mf; }
+                    if (ab > 0) { if (esUsd) recAFUsd += ab; else recAFArs += ab; }
+                }
             });
             return { nombre: (progMap[pid] || ('Programa ' + pid)), est: Object.keys(dnisP).length,
                      recArs: recArs, recUsd: recUsd, espArs: espArs, espUsd: espUsd,
-                     tasa: (espArs > 0 ? (recArs / espArs * 100) : 0) };
+                     espAFArs: espAFArs, espAFUsd: espAFUsd, recAFArs: recAFArs, recAFUsd: recAFUsd,
+                     tasa: (espArs > 0 ? (recArs / espArs * 100) : 0),
+                     tasaAF: (espAFArs > 0 ? (recAFArs / espAFArs * 100) : 0) };
         }).sort(function(a, b){ return b.recArs - a.recArs; });
 
         var tbody = document.getElementById('tabla-detalle-body');
@@ -440,13 +474,17 @@ async function cargarDatos() {
                     + '<td style="text-align:center;">' + f.est + '</td>'
                     + '<td>' + fMontoDual(f.recArs, f.recUsd) + '</td>'
                     + '<td>' + fMontoDual(f.espArs, f.espUsd) + '</td>'
-                    + '<td style="text-align:center;">' + f.tasa.toFixed(1) + '%</td></tr>';
+                    + '<td style="text-align:center;">' + f.tasa.toFixed(1) + '%</td>'
+                    + '<td>' + fMontoDual(f.espAFArs, f.espAFUsd) + '</td>'
+                    + '<td style="text-align:center;">' + f.tasaAF.toFixed(1) + '%</td></tr>';
             }).join('');
             filasHtml += '<tr style="font-weight:700;background:#f8f6f1;"><td>TOTAL</td>'
                 + '<td style="text-align:center;">' + estudiantesActivos + '</td>'
                 + '<td>' + fMontoDual(totalRecaudadoArs, totalRecaudadoUsd) + '</td>'
                 + '<td>' + fMontoDual(totalEsperadoArs, totalEsperadoUsd) + '</td>'
-                + '<td style="text-align:center;">' + tasaCobro.toFixed(1) + '%</td></tr>';
+                + '<td style="text-align:center;">' + tasaCobro.toFixed(1) + '%</td>'
+                + '<td>' + fMontoDual(totalEspAFechaArs, totalEspAFechaUsd) + '</td>'
+                + '<td style="text-align:center;">' + tasaAFecha.toFixed(1) + '%</td></tr>';
             tbody.innerHTML = filasHtml;
         }
 
