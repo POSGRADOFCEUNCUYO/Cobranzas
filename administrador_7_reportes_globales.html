@@ -391,12 +391,25 @@
                         <div class="indice-nombre">4. Índice de Cobrabilidad Real</div>
                         <div class="indice-badge" id="badge-4">—</div>
                     </div>
-                    <div class="metrica-formula">Ingresos Ejecutados / Ingresos Proyectados</div>
+                    <div class="metrica-formula">Ingresos Ejecutados a la fecha / Esperado a la fecha</div>
                     <div class="indice-value" id="idx-4">—</div>
                     <div class="indice-bar"><div class="indice-fill" id="bar-4" style="width:0%;"></div></div>
                     <div style="font-size:13px;color:#666;margin-top:8px;" id="desc-4">
-                        <strong>Interpretación:</strong> De lo que esperabas cobrar, ¿qué porcentaje entró?<br>
-                        <strong>Acción:</strong> Usar este % como baseline para proyecciones futuras, no 100%.
+                        <strong>Interpretación:</strong> De lo que ya <em>tenías que</em> cobrar (cuotas cuyo mes ya llegó), ¿qué porcentaje entró? Mide la eficiencia real de cobranza.<br>
+                        <strong>Acción:</strong> Si baja, hay problema de cobranza. Sirve como baseline realista para proyecciones.
+                    </div>
+                </div>
+                <div class="indice-card">
+                    <div class="indice-header">
+                        <div class="indice-nombre">5. Avance de Recaudación</div>
+                        <div class="indice-badge" id="badge-5">—</div>
+                    </div>
+                    <div class="metrica-formula">Ingresos Ejecutados / Ingresos Proyectados (plan completo)</div>
+                    <div class="indice-value" id="idx-5">—</div>
+                    <div class="indice-bar"><div class="indice-fill" id="bar-5" style="width:0%;"></div></div>
+                    <div style="font-size:13px;color:#666;margin-top:8px;" id="desc-5">
+                        <strong>Interpretación:</strong> Del total de todo el plan de cobros del programa (incluye cuotas futuras), ¿qué % ya entró.<br>
+                        <strong>Nota:</strong> Es normal que sea bajo al inicio y suba a medida que avanza el programa. No es un indicador de gestión mensual.
                     </div>
                 </div>
             </div>
@@ -627,6 +640,17 @@ function calcularYRenderizar(cobros, inscripciones, desde, hasta, progId, cohId,
     var montoMoraUsd  = 0;  // USD
     var cuotasEnMora  = 0;
     var dnisEnMora    = {};
+    // "A la fecha": cuotas cuyo mes de vencimiento ya llegó (mes actual o anteriores)
+    var ingresoProyAF = 0;  // ARS — esperado a la fecha (denominador de cobrabilidad)
+    var ingresoEjecAF = 0;  // ARS — cobrado sobre cuotas a la fecha (numerador)
+    var _hoyAF = new Date();
+    var _mmAF  = _hoyAF.getMonth() + 1;
+    var _mesActualAF = _hoyAF.getFullYear() + '-' + (_mmAF < 10 ? '0' : '') + _mmAF; // 'YYYY-MM'
+    function mesLlegoAF(c) {
+        var fv = c && c.fecha_vencimiento ? String(c.fecha_vencimiento).substring(0, 7) : null;
+        if (!fv) return true; // sin fecha de vencimiento => se considera corriente
+        return fv <= _mesActualAF;
+    }
 
     cobros.forEach(function(c) {
         var mf  = Number(c.monto_final || 0);
@@ -642,6 +666,15 @@ function calcularYRenderizar(cobros, inscripciones, desde, hasta, progId, cohId,
         if (est === 'ABONADA' || est === 'PAGO_PARCIAL') {
             var _ma = (c.monto_abonado && Number(c.monto_abonado) > 0) ? Number(c.monto_abonado) : Math.max(0, mf - sp);
             if (esUsd) ingresoEjecUsd += _ma; else ingresoEjec += _ma;
+        }
+
+        // "A la fecha" (solo ARS): esperado = cuotas cuyo mes ya llegó; cobrado = lo recibido en esas cuotas
+        if (!esUsd && mesLlegoAF(c)) {
+            ingresoProyAF += mf;
+            if (est === 'ABONADA' || est === 'PAGO_PARCIAL') {
+                var _maAF = (c.monto_abonado && Number(c.monto_abonado) > 0) ? Number(c.monto_abonado) : Math.max(0, mf - sp);
+                ingresoEjecAF += _maAF;
+            }
         }
 
         // Mora: saldo en mora (snapshot, sin filtro de fecha)
@@ -687,7 +720,8 @@ function calcularYRenderizar(cobros, inscripciones, desde, hasta, progId, cohId,
     var coberturaCrit = egresoCrit > 0 ? (ingresoEjec / egresoCrit) : null;
     var pctAjust      = egresoProy > 0 ? (egresoAjust / egresoProy * 100) : null;
     var pctMora       = ingresoProy > 0 ? (montoMora / ingresoProy * 100) : null;
-    var cobrabilidad  = ingresoProy > 0 ? (ingresoEjec / ingresoProy * 100) : null;
+    var cobrabilidad  = ingresoProyAF > 0 ? (ingresoEjecAF / ingresoProyAF * 100) : null;  // a la fecha (cuotas ya vencidas)
+    var avanceRecaud  = ingresoProy   > 0 ? (ingresoEjec   / ingresoProy   * 100) : null;  // avance del plan completo
 
     // ── DESERCIÓN ──
     var totalInsc = inscripciones.length;
@@ -716,14 +750,14 @@ function calcularYRenderizar(cobros, inscripciones, desde, hasta, progId, cohId,
         ingresoProy, ingresoEjec, montoMora, estudiantesEnMora,
         metricaA, metricaB, metricaC, metricaD, metricaE,
         liquidezPot, deudaPend, margen,
-        coberturaCrit, pctAjust, pctMora, cobrabilidad,
+        coberturaCrit, pctAjust, pctMora, cobrabilidad, avanceRecaud,
         churnPct, bajas, activos: totalInsc, ingresoRealista,
         egresoProy, egresoEjec, egresoAjust, egresoCrit
     };
 
     // ── RENDER ──
     renderMetricasLiquidez(ingresoProy, ingresoEjec, montoMora, estudiantesEnMora, metricaA, metricaB, metricaC, metricaD, metricaE, ingresoProyUsd, ingresoEjecUsd, montoMoraUsd);
-    renderIndices(coberturaCrit, pctAjust, pctMora, cobrabilidad, ingresoProy);
+    renderIndices(coberturaCrit, pctAjust, pctMora, cobrabilidad, ingresoProy, avanceRecaud);
     renderChurn(churnPct, bajas, totalInsc, activos, ingresoProy, ingresoRealista, cobrPct);
     renderGastosAjustables();
     renderAging();
@@ -754,7 +788,7 @@ function renderMetricasLiquidez(ingProy, ingEjec, mora, estMora, mA, mB, mC, mD,
 }
 
 /* ── RENDER: ÍNDICES ── */
-function renderIndices(cobCrit, pctAjust, pctMora, cobrPct, ingProy) {
+function renderIndices(cobCrit, pctAjust, pctMora, cobrPct, ingProy, avancePct) {
     // Índice 1: Cobertura crítica
     if (cobCrit !== null) {
         var cl1 = cobCrit >= 1.5 ? 'green' : cobCrit >= 1 ? 'yellow' : 'red';
@@ -779,13 +813,19 @@ function renderIndices(cobCrit, pctAjust, pctMora, cobrPct, ingProy) {
     } else {
         setIndice(3, '0%', 0, 'green', 'BUENO');
     }
-    // Índice 4: Cobrabilidad
+    // Índice 4: Cobrabilidad a la fecha
     if (cobrPct !== null) {
         var cl4 = cobrPct >= 80 ? 'green' : cobrPct >= 60 ? 'yellow' : 'red';
         var b4  = cobrPct >= 80 ? 'BUENO' : cobrPct >= 60 ? 'MONITOREAR' : 'CRÍTICO';
         setIndice(4, cobrPct.toFixed(1)+'%', cobrPct, cl4, b4);
     } else {
         setIndice(4, 'Sin datos', 0, 'yellow', 'SIN DATOS');
+    }
+    // Índice 5: Avance de recaudación (informativo, sobre el plan completo)
+    if (typeof avancePct !== 'undefined' && avancePct !== null) {
+        setIndice(5, avancePct.toFixed(1)+'%', avancePct, 'green', 'INFORMATIVO');
+    } else {
+        setIndice(5, 'Sin datos', 0, 'yellow', 'SIN DATOS');
     }
 }
 
@@ -1022,7 +1062,8 @@ function exportarCSV() {
         ['Cobertura Críticos',   m.coberturaCrit !== null ? m.coberturaCrit.toFixed(2) : 'Sin datos'],
         ['Ahorro Virtualización',m.pctAjust !== null ? m.pctAjust.toFixed(1)+'%' : 'Sin datos'],
         ['Tasa de Mora',         m.pctMora !== null ? m.pctMora.toFixed(1)+'%' : 'Sin datos'],
-        ['Cobrabilidad Real',    m.cobrabilidad !== null ? m.cobrabilidad.toFixed(1)+'%' : 'Sin datos'],
+        ['Cobrabilidad Real (a la fecha)', m.cobrabilidad !== null ? m.cobrabilidad.toFixed(1)+'%' : 'Sin datos'],
+        ['Avance de Recaudación (plan completo)', m.avanceRecaud != null ? m.avanceRecaud.toFixed(1)+'%' : 'Sin datos'],
         ['---','---'],
         ['Deserción',    m.churnPct.toFixed(1)+'%'],
         ['Bajas',                m.bajas],
@@ -1067,7 +1108,8 @@ function iaObtenerContexto() {
         + '• Cobertura Críticos: ' + (m.coberturaCrit!==null&&m.coberturaCrit!==undefined?m.coberturaCrit.toFixed(2):'Sin egresos') + '\n'
         + '• Ahorro Virtualización: ' + (m.pctAjust!==null&&m.pctAjust!==undefined?m.pctAjust.toFixed(1)+'%':'Sin egresos') + '\n'
         + '• Tasa de Mora: ' + (m.pctMora!==null&&m.pctMora!==undefined?m.pctMora.toFixed(1)+'%':'—') + '\n'
-        + '• Cobrabilidad Real: ' + (m.cobrabilidad!==null&&m.cobrabilidad!==undefined?m.cobrabilidad.toFixed(1)+'%':'—') + '\n\n'
+        + '• Cobrabilidad Real (a la fecha): ' + (m.cobrabilidad!==null&&m.cobrabilidad!==undefined?m.cobrabilidad.toFixed(1)+'%':'—') + '\n'
+        + '• Avance de Recaudación (plan completo): ' + (m.avanceRecaud!=null?m.avanceRecaud.toFixed(1)+'%':'—') + '\n\n'
         + '=== DESERCIÓN ===\n'
         + '• Tasa de Deserción: ' + (m.churnPct||0).toFixed(1) + '% (' + (m.bajas||0) + ' bajas de ' + (m.activos||0) + ' inscriptos)\n'
         + '• Ingreso Realista: ' + fPeso(m.ingresoRealista||0) + '\n\n'
@@ -1196,7 +1238,8 @@ function exportarExcel() {
         { 'Métrica': 'Cobertura Críticos',       'Valor': m.coberturaCrit !== null ? m.coberturaCrit.toFixed(2) : 'Sin datos' },
         { 'Métrica': 'Ahorro Virtualización',    'Valor': m.pctAjust !== null ? m.pctAjust.toFixed(1)+'%' : 'Sin datos' },
         { 'Métrica': 'Tasa de Mora',             'Valor': m.pctMora !== null ? m.pctMora.toFixed(1)+'%' : 'Sin datos' },
-        { 'Métrica': 'Cobrabilidad Real',        'Valor': m.cobrabilidad !== null ? m.cobrabilidad.toFixed(1)+'%' : 'Sin datos' },
+        { 'Métrica': 'Cobrabilidad Real (a la fecha)', 'Valor': m.cobrabilidad !== null ? m.cobrabilidad.toFixed(1)+'%' : 'Sin datos' },
+        { 'Métrica': 'Avance de Recaudación (plan completo)', 'Valor': m.avanceRecaud != null ? m.avanceRecaud.toFixed(1)+'%' : 'Sin datos' },
         { 'Métrica': '---',                      'Valor': '---' },
         { 'Métrica': 'Deserción',                'Valor': m.churnPct.toFixed(1)+'%' },
         { 'Métrica': 'Bajas',                    'Valor': m.bajas },
