@@ -801,15 +801,22 @@
             return '<option value="">— Sin cohorte —</option>'
                 + cohs.map(c => `<option value="${c.cohorte_id}"${String(sel)===String(c.cohorte_id)?' selected':''}>${escapeHtml(c.nombre)}</option>`).join('');
         }
-        function repAgregarParte(prog, coh, val) {
+        function repCatOptions(sel) {
+            var gc = document.getElementById('categoria');
+            var def = (sel != null && sel !== '') ? sel : (gc ? gc.value : '');
+            return '<option value="">— Categoría —</option>'
+                + CATEGORIAS.map(c => `<option value="${escapeHtml(c)}"${String(def)===String(c)?' selected':''}>${escapeHtml(c)}</option>`).join('');
+        }
+        function repAgregarParte(prog, coh, val, cat) {
             var i = ++_repRowSeq;
             var wrap = document.createElement('div');
             wrap.className = 'rep-parte';
             wrap.id = 'rep-parte-' + i;
-            wrap.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 110px auto auto;gap:6px;align-items:center;margin-bottom:6px;';
+            wrap.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 1fr 90px auto auto;gap:6px;align-items:center;margin-bottom:6px;';
             wrap.innerHTML =
                 '<select class="form-select rep-prog" onchange="repProgChange(' + i + ')">' + repProgOptions(prog) + '</select>'
               + '<select class="form-select rep-coh">' + repCohOptions(prog, coh) + '</select>'
+              + '<select class="form-select rep-cat">' + repCatOptions(cat) + '</select>'
               + '<input type="number" class="form-input rep-val" placeholder="0" min="0" step="0.01" value="' + (val != null ? val : '') + '" oninput="repRecalcular()">'
               + '<span class="rep-monto form-hint" style="margin:0;white-space:nowrap;">—</span>'
               + '<button type="button" class="btn" style="padding:4px 8px;background:#e0e0e0;color:#666;" onclick="repQuitarParte(' + i + ')">🗑</button>';
@@ -831,6 +838,7 @@
                 return {
                     programa_id: w.querySelector('.rep-prog').value || '',
                     cohorte_id:  w.querySelector('.rep-coh').value || '',
+                    categoria:   (w.querySelector('.rep-cat') ? w.querySelector('.rep-cat').value : '') || '',
                     valor:       parseFloat(w.querySelector('.rep-val').value) || 0,
                     _wrap: w
                 };
@@ -930,6 +938,7 @@
                 var o = Object.assign({}, comun, {
                     programa_id:    p.programa_id,
                     cohorte_id:     p.cohorte_id || null,
+                    categoria:      p.categoria || categoria,
                     monto_original: monto,
                     monto_pagado:   ejecutado ? monto : null
                 });
