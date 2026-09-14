@@ -17,3 +17,19 @@
 - **Capacidad: el free alcanza por años.** El único tope que algún día podría rozar es el de **archivos/Storage** (comprobantes). **Umbral a vigilar: Storage > ~800 MB** → ahí recién empezar a archivar/borrar viejos o subir de plan.
 - **Evaluar plan Pro (~USD 25/mes) NO por espacio, sino por:** backups automáticos diarios + point-in-time recovery (lo más valioso para datos de pagos), que no se pause por inactividad, y soporte por mail. Es un **upgrade** (un botón), no una migración.
 - **Servidores propios de la facultad (idea a futuro):** Supabase es open source y autohospedable (Docker). Dos caminos: (A) mudar el stack completo (Postgres + PostgREST + Auth + Storage) a un servidor de la facultad con **endpoint público HTTPS** (los alumnos entran desde su casa; red interna sola no sirve); (B) híbrido: Supabase sigue en vivo y se replica una **copia de respaldo** de la base a un servidor de la facultad. Ojo: mover solo Postgres NO alcanza (la web usa toda la API/Auth de Supabase). Antes de decidir, preguntar a IT: (1) ¿pueden exponer HTTPS público?, (2) ¿corren Docker?, (3) ¿quién mantiene el stack y los backups?
+
+## Alta de un estudiante nuevo (proceso probado — NO reinventar)
+Contexto clave: al insertar en `inscripciones` hay un **trigger** (`trg_cobros_nuevo_inscripto` → `generar_cobros_nuevo_inscripto()`) que **crea automáticamente las cuotas en esqueleto** (estado `A_DEFINIR`, montos 0) copiando el plan de la cohorte (conceptos/períodos/vencimientos de los otros estudiantes). Por eso **NO hay que insertar cobros a mano** (choca con el UNIQUE `cobros_uq_dni_cohorte_concepto_periodo`): se **UPDATE-an** las cuotas que el trigger ya creó.
+
+IDs autoincrementales (identity, omitir al insertar): `estudiantes.id`, `inscripciones.id`, `usuarios.usuario_id`, `cobros.cobro_id`.
+
+**Pasos (todo en un DO $$ block / transacción):**
+1. **auth.users** (login): `id gen_random_uuid()`, `instance_id '00000000-0000-0000-0000-000000000000'`, `aud`/`role` `'authenticated'`, `email`, `encrypted_password extensions.crypt('<DNI>', extensions.gen_salt('bf'))`, `email_confirmed_at now()`, `raw_app_meta_data '{"provider":"email","providers":["email"]}'`, `raw_user_meta_data '{"email_verified":true}'`, tokens vacíos (`confirmation_token, recovery_token, email_change_token_new, email_change = ''`), `is_sso_user/is_anonymous false`. Contraseña inicial = **el DNI**.
+2. **estudiantes**: `auth_user_id, dni, apellido, nombre, email, programa_id, cohorte_id, descuento_porcentaje` → `RETURNING id`.
+3. **usuarios**: `auth_user_id, dni, nombre_completo, apellido, nombre, email, rol 'ESTUDIANTE', programa_id, debe_cambiar_password true`.
+4. **inscripciones**: `estudiante_id, cohorte_id, descuento_porcentaje` → **el trigger genera las cuotas esqueleto** (A_DEFINIR, 0).
+5. **UPDATE cobros** por concepto para poner los montos reales (el trigger NO aplica montos ni descuento):
+   - Inscripción abonada: `monto_original`, `monto_final`, `descuento_porcentaje`, `estado='ABONADA'`, `monto_abonado`, `saldo_pendiente=0`, `fecha_pago` + fila en **`pagos`** (`cobro_id, numero_pago, fecha_pago, monto`).
+   - Cuotas: `monto_original` (base), `descuento_porcentaje`, `monto_final = base*(1-desc/100)`, `saldo_pendiente = monto_final`, `estado='NO_ABONADA'`. `exenta_mora=true` en las que corresponda.
+
+Notas: FK `cobros_dni_fkey` → `estudiantes(dni)` (crear estudiante ANTES que los cobros; con el trigger esto ya queda ordenado). `cobros.tipo`/`estado` no aplica acá (eso es de egresos). Enums cobros: `estado_cobro`. Siempre verificar primero si el estudiante ya existe (estudiantes + usuarios + cobros por DNI) y confirmar nombre↔DNI (han venido con DNI equivocado).
