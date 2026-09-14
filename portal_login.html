@@ -210,7 +210,7 @@
 
             <div class="field">
                 <label for="dni">DNI</label>
-                <input type="text" id="dni" placeholder="Ingresá tu DNI" autocomplete="username" inputmode="numeric" maxlength="10"
+                <input type="text" id="dni" placeholder="Ingresá tu DNI" autocomplete="username"
                     onkeydown="if(event.key==='Enter') document.getElementById('password').focus()">
             </div>
 
@@ -313,7 +313,6 @@ async function iniciarSesion() {
     var password = document.getElementById('password').value;
 
     if (!dni) { mostrarError('Ingresá tu DNI'); document.getElementById('dni').focus(); return; }
-    if (!/^\d{7,10}$/.test(dni)) { mostrarError('El DNI debe tener entre 7 y 10 dígitos numéricos'); document.getElementById('dni').focus(); return; }
     if (!password) { mostrarError('Ingresá tu contraseña'); document.getElementById('password').focus(); return; }
 
     var btn = document.getElementById('btnLogin');
