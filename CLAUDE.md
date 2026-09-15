@@ -33,3 +33,8 @@ IDs autoincrementales (identity, omitir al insertar): `estudiantes.id`, `inscrip
    - Cuotas: `monto_original` (base), `descuento_porcentaje`, `monto_final = base*(1-desc/100)`, `saldo_pendiente = monto_final`, `estado='NO_ABONADA'`. `exenta_mora=true` en las que corresponda.
 
 Notas: FK `cobros_dni_fkey` → `estudiantes(dni)` (crear estudiante ANTES que los cobros; con el trigger esto ya queda ordenado). `cobros.tipo`/`estado` no aplica acá (eso es de egresos). Enums cobros: `estado_cobro`. Siempre verificar primero si el estudiante ya existe (estudiantes + usuarios + cobros por DNI) y confirmar nombre↔DNI (han venido con DNI equivocado).
+
+## Recibos / Tango Gestión (NO confundir)
+- **El recibo/comprobante fiscal lo emite Tango Gestión** (sistema contable externo). **NO tengo acceso a Tango** — solo a Supabase (base del Portal) y al repo.
+- Lo que en el Portal llamamos `pago` (tabla `pagos`) es un **registro INTERNO de trazabilidad** (cuánto/cuándo se pagó, para que la cuota cierre), **NO** el recibo que se le entrega al estudiante. Marcar una cuota `ABONADA` no requiere sí o sí una fila en `pagos`.
+- Al registrar un pago interno **nunca inventar la fecha**: pedirla. Si alcanza con el estado ABONADA, se deja sin fila en `pagos`.
