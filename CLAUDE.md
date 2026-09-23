@@ -18,6 +18,18 @@
 - **Evaluar plan Pro (~USD 25/mes) NO por espacio, sino por:** backups automáticos diarios + point-in-time recovery (lo más valioso para datos de pagos), que no se pause por inactividad, y soporte por mail. Es un **upgrade** (un botón), no una migración.
 - **Servidores propios de la facultad (idea a futuro):** Supabase es open source y autohospedable (Docker). Dos caminos: (A) mudar el stack completo (Postgres + PostgREST + Auth + Storage) a un servidor de la facultad con **endpoint público HTTPS** (los alumnos entran desde su casa; red interna sola no sirve); (B) híbrido: Supabase sigue en vivo y se replica una **copia de respaldo** de la base a un servidor de la facultad. Ojo: mover solo Postgres NO alcanza (la web usa toda la API/Auth de Supabase). Antes de decidir, preguntar a IT: (1) ¿pueden exponer HTTPS público?, (2) ¿corren Docker?, (3) ¿quién mantiene el stack y los backups?
 
+## Supabase — cambio Data API 30-oct-2026 (GRANTs en tablas nuevas)
+- **Desde el 30/10/2026**, Supabase deja de dar acceso automático de la Data API (supabase-js/PostgREST/GraphQL) a **tablas nuevas** del esquema `public`.
+- **Las tablas actuales NO cambian:** conservan permisos y siguen accesibles. La web del Portal sigue funcionando sin tocar nada. Este proyecto casi siempre hace **cambios de datos** (UPDATE/INSERT de filas), no crea tablas → en el día a día no afecta.
+- **Solo importa cuando se CREA una tabla nueva** en `public` (migración, SQL manual, rama preview o `supabase db reset`). Si falta el GRANT, la API responde *permission denied* con el GRANT exacto a correr.
+- **Regla:** en la MISMA migración que crea la tabla, agregar:
+  ```sql
+  GRANT SELECT ON public.mi_tabla TO anon;
+  GRANT SELECT, INSERT, UPDATE, DELETE ON public.mi_tabla TO authenticated;
+  GRANT SELECT, INSERT, UPDATE, DELETE ON public.mi_tabla TO service_role;
+  ```
+  (ajustar según qué debería ver `anon` — para tablas sensibles, no darle SELECT a `anon`).
+
 ## Alta de un estudiante nuevo (proceso probado — NO reinventar)
 Contexto clave: al insertar en `inscripciones` hay un **trigger** (`trg_cobros_nuevo_inscripto` → `generar_cobros_nuevo_inscripto()`) que **crea automáticamente las cuotas en esqueleto** (estado `A_DEFINIR`, montos 0) copiando el plan de la cohorte (conceptos/períodos/vencimientos de los otros estudiantes). Por eso **NO hay que insertar cobros a mano** (choca con el UNIQUE `cobros_uq_dni_cohorte_concepto_periodo`): se **UPDATE-an** las cuotas que el trigger ya creó.
 
