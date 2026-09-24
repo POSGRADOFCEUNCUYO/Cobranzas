@@ -2,9 +2,15 @@
 
 ## Reglas de trabajo (pedidas por Anneris)
 - **No rellenar los huecos con suposiciones, confirmar siempre.**
+- **CORROBORAR SIEMPRE en la base/código antes de afirmar algo. Nada de trabajar a ciegas ni de memoria.** Antes de responder o dar por hecho un dato (login, montos, estados, estructura), verificarlo con una consulta o leyendo el código. No dar explicaciones "de memoria" sobre cómo funciona el sistema: chequear primero.
 - Nunca usar Python/sed para reconstruir archivos — solo el tool Edit con bloques exactos ya leídos.
 - Siempre leer antes de editar. Después de cada Edit, verificar con grep/Read.
 - Un cambio por commit.
+
+## Login del estudiante (CORROBORADO en portal_login.html) — NO confundir
+- **El estudiante entra escribiendo su DNI como usuario y su contraseña** (contraseña inicial = el DNI). El campo del login es el **DNI**, NO el email.
+- Por dentro: el DNI se pasa al RPC `get_login_info(p_dni)` → devuelve `{email, activo}`; con ese email + la contraseña se hace `sb.auth.signInWithPassword({email, password})`.
+- Por eso en `auth.users.email` va el **email real** del estudiante (identificador interno de la cuenta + destino de los mails de "recuperar contraseña"); el alumno **nunca escribe el email**. La cadena que importa que funcione es **DNI → email** (que `get_login_info(DNI)` devuelva el mismo email guardado en `auth.users`/`usuarios`/`estudiantes`).
 
 ## Infraestructura (NO volver a preguntar)
 - **GitHub Pages publica desde la rama `desarrollo-38`.** Es la rama de producción en vivo. NO es `main`. Pushear a `desarrollo-38` pone los cambios en vivo. (Antes producción era `desarrollo-36`; se movió a `desarrollo-38`.)
