@@ -90,14 +90,17 @@ function _procesarUnPDF(att, msg) {
   var texto = _extraerTextoPDF(att);
   Logger.log('--- TEXTO PDF (primeros 800 chars) ---\n' + texto.substring(0, 800));
 
-  // 1b. ¿FACTURA o RECIBO? El recibo trae el descargo legal
+  // 1b. ¿FACTURA / NOTA o RECIBO? El recibo trae el descargo legal
   //     "DOCUMENTO NO VALIDO COMO FACTURA", que hacía que se confundiera
   //     con una factura. Detectamos primero el RECIBO por su encabezado
-  //     "RECIBO OFICIAL"; solo si NO es recibo y aparece "FACTURA" fuera
-  //     de ese descargo lo tratamos como factura (se vincula al ESTUDIANTE).
+  //     "RECIBO OFICIAL"; si NO es recibo y aparece "FACTURA" fuera de ese
+  //     descargo —o es una NOTA DE CRÉDITO / NOTA DE DÉBITO— lo tratamos por
+  //     el mismo circuito que la factura (se vincula al ESTUDIANTE por el DNI
+  //     del campo "Corresponde a" y se guarda en `facturas`).
   var _esRecibo    = /RECIBO\s+OFICIAL/i.test(texto);
+  var _esNota      = /NOTA\s+DE\s+(CR[ÉE]DITO|D[ÉE]BITO)/i.test(texto);
   var _sinDescargo = texto.replace(/NO\s+V[ÁA]LIDO\s+COMO\s+FACTURA/ig, '');
-  if (!_esRecibo && /\bFACTURA\b/i.test(_sinDescargo)) {
+  if (!_esRecibo && (_esNota || /\bFACTURA\b/i.test(_sinDescargo))) {
     _procesarFactura(texto, att, msg);
     return;
   }
@@ -524,14 +527,14 @@ function _procesarFactura(texto, att, msg) {
 
   var ok = _sbPost('facturas', {
     estudiante_dni: est.dni,
-    descripcion:    datos.descripcion || ('Factura ' + (datos.nro_factura || '')),
+    descripcion:    datos.descripcion || ((datos.tipo_doc || 'Factura') + ' ' + (datos.nro_factura || '')),
     periodo:        datos.periodo || null,
     archivo_url:    pdfUrl,
     subido_por_dni: 'TANGO'
   });
 
   if (ok) {
-    Logger.log('✅ Factura ' + datos.nro_factura + ' asignada a ' +
+    Logger.log('✅ ' + (datos.tipo_doc || 'Factura') + ' ' + datos.nro_factura + ' asignada a ' +
                (est.apellido || '') + ', ' + (est.nombre || '') + ' (dni=' + est.dni + ')');
   } else {
     _avisarFacturaPendiente(datos, 'Error al guardar la factura en la BD (PDF en Storage: ' + pdfUrl + ').', pdfUrl);
@@ -547,13 +550,20 @@ function _procesarFactura(texto, att, msg) {
 function _parsearFactura(texto) {
   var datos = {
     nro_factura:     null,
+    tipo_doc:        'Factura',
     dni_normalizado: null,
     alumno_nombre:   null,
     descripcion:     null,
     periodo:         null
   };
 
-  // Nro de factura — ej: "Nro: C00009-00000295"
+  // Tipo de comprobante: Factura / Nota de Crédito / Nota de Débito.
+  // Las notas se procesan igual que la factura (van al ESTUDIANTE por el DNI
+  // del campo "Corresponde a"); solo cambia la etiqueta en la descripción.
+  if (/NOTA\s+DE\s+CR[ÉE]DITO/i.test(texto))      datos.tipo_doc = 'Nota de Crédito';
+  else if (/NOTA\s+DE\s+D[ÉE]BITO/i.test(texto))  datos.tipo_doc = 'Nota de Débito';
+
+  // Nro del comprobante — ej: "Nro: C00009-00000295"
   var mNro = texto.match(/Nro\.?\s*:?\s*([A-Z]?\d{3,5}-\d{5,10})/i);
   if (mNro) datos.nro_factura = mNro[1];
 
@@ -587,8 +597,8 @@ function _parsearFactura(texto) {
   if (item)               partes.push(item);
   if (mCuota)             partes.push('Cuota ' + mCuota[1]);
   if (datos.periodo)      partes.push(datos.periodo);
-  if (datos.nro_factura)  partes.push('Factura ' + datos.nro_factura);
-  datos.descripcion = partes.join(' · ') || 'Factura';
+  if (datos.nro_factura)  partes.push(datos.tipo_doc + ' ' + datos.nro_factura);
+  datos.descripcion = partes.join(' · ') || datos.tipo_doc;
 
   return datos;
 }
