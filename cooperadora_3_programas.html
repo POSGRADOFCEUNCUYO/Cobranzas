@@ -188,6 +188,13 @@
             return;
         }
 
+        // Orden: programas activos primero, inactivos/cerrados al final.
+        // (sort estable en JS moderno → conserva el orden actual dentro de cada grupo)
+        programas = programas.slice().sort(function(a, b){
+            return ((a.estado || '').toUpperCase() === 'ACTIVO' ? 0 : 1)
+                 - ((b.estado || '').toUpperCase() === 'ACTIVO' ? 0 : 1);
+        });
+
         grid.innerHTML = programas.map(function(p) {
             var tipo        = (p.tipo || '').toLowerCase().replace('_', '');
             var estadoLabel = (p.estado || '').toLowerCase() === 'activo' ? 'Activo' : (p.estado || '—');
