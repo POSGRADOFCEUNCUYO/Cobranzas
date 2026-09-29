@@ -3,6 +3,7 @@
 ## Reglas de trabajo (pedidas por Anneris)
 - **No rellenar los huecos con suposiciones, confirmar siempre.**
 - **CORROBORAR SIEMPRE en la base/código antes de afirmar algo. Nada de trabajar a ciegas ni de memoria.** Antes de responder o dar por hecho un dato (login, montos, estados, estructura), verificarlo con una consulta o leyendo el código. No dar explicaciones "de memoria" sobre cómo funciona el sistema: chequear primero.
+- **DESPUÉS de cada cambio, CORROBORAR que quedó bien y funcionando, sin errores.** Volver a leer/consultar el resultado real (montos, estados, que la función/web no tire error) antes de dar la tarea por terminada. No decir "listo" sin haber comprobado el resultado final; si algo quedó a medias o con error, avisarlo.
 - Nunca usar Python/sed para reconstruir archivos — solo el tool Edit con bloques exactos ya leídos.
 - Siempre leer antes de editar. Después de cada Edit, verificar con grep/Read.
 - Un cambio por commit.
