@@ -388,6 +388,12 @@ function renderDashboard(data) {
     var listaPosgrado = todos.filter(function(p) { return p.categoria === 'Programa'; });
     var listaCursos   = todos.filter(function(p) { return p.categoria === 'Curso'; });
 
+    // Orden: programas activos primero, inactivos/cerrados al final.
+    // (sort estable en JS moderno → conserva el orden actual dentro de cada grupo)
+    var _porEstado = function(a, b){ return (a.estado === 'ACTIVO' ? 0 : 1) - (b.estado === 'ACTIVO' ? 0 : 1); };
+    listaPosgrado = listaPosgrado.slice().sort(_porEstado);
+    listaCursos   = listaCursos.slice().sort(_porEstado);
+
     document.getElementById('programs-title').textContent =
         '🎓 Programas de Posgrado (' + listaPosgrado.length + ')';
     document.getElementById('cursos-title').textContent =
