@@ -14,7 +14,7 @@
  *  · Todos los días a las 07:00 → Alerta cuotas A_DEFINIR
  *    Se dispara UNA SOLA VEZ cuando quedan 45 días o menos
  *    para el vencimiento de una cuota sin monto definido.
- *    Destinatarios: cooperadora, secretaria y admin del programa.
+ *    Destinatarios: administrador, secretaría y gerencia (global) + coordinador y profesor del programa.
  * ══════════════════════════════════════════════════════════════
  */
 
@@ -76,11 +76,30 @@ function alertarCuotasADefinir() {
   var cohMap     = _indexar(cohortes,  'cohorte_id');
   var progMap    = _indexar(programas, 'programa_id');
 
-  // Personal de back-office global (ADMINISTRADOR/SECRETARIA/COOPERADORA, sin restricción de programa).
-  // Los COORDINADOREs NO se consultan aquí: su correo viene de programas.email_remitente,
-  // evitando que coordinadores de otros programas reciban alertas ajenas.
-  var globalStaff  = _sbGet('usuarios?select=email&rol=in.(COOPERADORA,SECRETARIA,ADMINISTRADOR)&estado_usuario=eq.ACTIVO');
+  // Back-office global que SIEMPRE recibe (sin restricción de programa): ADMINISTRADOR, SECRETARIA y GERENTE.
+  // NO incluye COOPERADORA (no debe recibir estas alertas).
+  var globalStaff  = _sbGet('usuarios?select=email&rol=in.(ADMINISTRADOR,SECRETARIA,GERENTE_COOPERADORA)&estado_usuario=eq.ACTIVO');
   var globalEmails = _uniq(globalStaff.filter(function(r){ return r.email; }).map(function(r){ return r.email; }));
+
+  // Coordinadores y profesores vinculados a cada programa (tabla coordinadores_programas).
+  // Se filtran POR PROGRAMA para que no reciban alertas de programas ajenos.
+  var vinculos  = _sbGet('coordinadores_programas?select=coordinador_id,programa_id,cohorte_id');
+  var staffIds  = _uniq(vinculos.map(function(v){ return v.coordinador_id; }).filter(function(x){ return x != null; }));
+  var staffRows = staffIds.length
+    ? _sbGet('usuarios?select=usuario_id,email,rol&estado_usuario=eq.ACTIVO&rol=in.(COORDINADOR,PROFESOR)&usuario_id=in.(' + staffIds.join(',') + ')')
+    : [];
+  var staffMap  = _indexar(staffRows, 'usuario_id'); // usuario_id -> {email, rol}
+
+  // Coordinador/profesor de un programa (vínculo sin cohorte = todo el programa; con cohorte = solo esa cohorte).
+  function _emailsPrograma(pid, cid) {
+    return _uniq(vinculos.filter(function(v){
+      return String(v.programa_id) === String(pid) &&
+             (v.cohorte_id == null || String(v.cohorte_id) === String(cid));
+    }).map(function(v){
+      var u = staffMap[v.coordinador_id];
+      return u ? u.email : null;
+    }).filter(function(e){ return e; }));
+  }
 
   var enviados = 0;
   cohorteIds.forEach(function(cid) {
@@ -91,10 +110,8 @@ function alertarCuotasADefinir() {
     var fechaVenc = cuotas[0] ? cuotas[0].fecha_vencimiento : '';
     var dias      = fechaVenc ? Math.round((new Date(fechaVenc) - hoy) / 86400000) : 0;
 
-    // Destinatarios: correo del programa (email_remitente) + back-office global
-    var emails = _uniq(
-      (prog.email_remitente ? [prog.email_remitente] : []).concat(globalEmails)
-    );
+    // Destinatarios: back-office global (admin/secretaría/gerencia) + coordinador y profesor DEL programa
+    var emails = _uniq(globalEmails.concat(_emailsPrograma(coh.programa_id, cid)));
 
     if (!emails.length) { Logger.log('Sin destinatarios para cohorte ' + cid); return; }
 
