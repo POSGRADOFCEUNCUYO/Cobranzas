@@ -663,7 +663,7 @@
         }
 
         lista.innerHTML = data.map(function(e) {
-            return '<div class="result-row" onclick="seleccionarEstudiante(' + e.dni + ', this)">'
+            return '<div class="result-row" onclick="seleccionarEstudiante(\'' + escJs(e.dni) + '\', this)">'
                 + '<strong>' + esc((e.apellido || '') + ', ' + (e.nombre || '')) + '</strong>'
                 + '<br><span style="color:#888;font-size:11px;">DNI ' + esc(e.dni) + '</span>'
                 + '</div>';
