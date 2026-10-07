@@ -1,6 +1,7 @@
 # SiGPo — Notas de proyecto
 
 ## Reglas de trabajo (pedidas por Anneris)
+- **HACER SOLO LO QUE SE PIDE. NO TOCAR NADA QUE NO SE HAYA PEDIDO EXPLÍCITAMENTE.** Una pregunta ("¿por qué…?", "¿se puede…?") NO es una orden de cambiar código ni datos: se responde, no se modifica. Si en el camino veo que conviene arreglar/cambiar algo más, lo AVISO y espero el "sí" de Anneris ANTES de tocarlo. Nunca editar archivos, cambiar datos ni pushear cambios no solicitados.
 - **No rellenar los huecos con suposiciones, confirmar siempre.**
 - **CORROBORAR SIEMPRE en la base/código antes de afirmar algo. Nada de trabajar a ciegas ni de memoria.** Antes de responder o dar por hecho un dato (login, montos, estados, estructura), verificarlo con una consulta o leyendo el código. No dar explicaciones "de memoria" sobre cómo funciona el sistema: chequear primero.
 - **DESPUÉS de cada cambio, CORROBORAR que quedó bien y funcionando, sin errores.** Volver a leer/consultar el resultado real (montos, estados, que la función/web no tire error) antes de dar la tarea por terminada. No decir "listo" sin haber comprobado el resultado final; si algo quedó a medias o con error, avisarlo.
