@@ -385,6 +385,10 @@ async function iniciarSesion() {
     }
 }
 
+// URL /exec del Web App del GAS de recibos (corre como crm.posgrado), que recibe
+// la solicitud y avisa por mail al administrador y al solicitante.
+var GAS_RESET_URL = 'PEGAR_URL_DEL_WEB_APP';
+
 async function recuperarPassword(e) {
     e.preventDefault();
     var dni = document.getElementById('dni').value.trim();
@@ -397,22 +401,21 @@ async function recuperarPassword(e) {
     var enlace = document.querySelector('.login-footer a');
     if (enlace) { enlace.textContent = 'Enviando…'; enlace.style.pointerEvents = 'none'; }
     try {
-        var sb = await getSupabase();
-        var { data: usuario } = await sb.from('usuarios').select('email').eq('dni', dni).single();
-        if (usuario && usuario.email) {
-            var redirectTo = window.location.origin + window.location.pathname;
-            await sb.auth.resetPasswordForEmail(usuario.email, { redirectTo: redirectTo });
-            var partes = usuario.email.split('@');
-            var oculto = partes[0].substring(0, 3) + '***@' + partes[1];
-            alert('📧 Se enviaron instrucciones a ' + oculto + '\nRevisá tu bandeja de entrada.');
-        } else {
-            alert('Si el DNI está registrado, recibirás un correo con instrucciones para recuperar el acceso.');
-        }
+        // Fire-and-forget al GAS (no-cors): el GAS busca al usuario y avisa al
+        // administrador y al solicitante. No se lee la respuesta (por eso no-cors);
+        // por seguridad no revelamos si el DNI está o no registrado.
+        await fetch(GAS_RESET_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ dni: dni })
+        });
     } catch(err) {
-        alert('Si el DNI está registrado, recibirás un correo con instrucciones para recuperar el acceso.');
+        // Se ignora: igual mostramos el mensaje genérico.
     } finally {
         if (enlace) { enlace.textContent = 'Recuperar acceso'; enlace.style.pointerEvents = ''; }
     }
+    alert('✅ Tu solicitud fue enviada a la Secretaría de Posgrado.\nSe contactarán con vos para restablecer tu acceso.');
 }
 
 function togglePasswordRec(id, btn) {

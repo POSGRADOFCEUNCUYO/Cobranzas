@@ -33,6 +33,7 @@ var EMAIL_REMITENTE = 'mrsuncuyo@gmail.com';              // TEST — en producc
 var EMAIL_ADMIN    = 'REEMPLAZAR_CON_EMAIL_ADMIN';        // ← recibe avisos de recibos que no se pudieron asignar
 var NOMBRE_INST    = 'Secretaría de Posgrado — FCE UNCUYO';
 var LABEL_PROCESADOS = 'Recibos-Tango-Procesados';
+var EMAIL_ADMIN_RESET = 'anneris.amarfil@fce.uncu.edu.ar';  // destino de las solicitudes de reseteo de contraseña
 
 // ══════════════════════════════════════════════════════════════
 // TRIGGER
@@ -45,6 +46,59 @@ function configurarTriggers() {
   // Para TEST: cambiar atHour(8) por la hora que quieras probar (0-23, hora de Argentina = UTC-3)
   ScriptApp.newTrigger('procesarRecibos').timeBased().everyDays(1).atHour(8).create();
   Logger.log('✅ Trigger diario 08:00 configurado.');
+}
+
+// ══════════════════════════════════════════════════════════════
+// SOLICITUD DE RESETEO DE CONTRASEÑA (desde la pantalla de login)
+// El front hace POST "a ciegas" (fire-and-forget) con {dni}. Buscamos al
+// usuario en Supabase y avisamos por mail al administrador y al propio
+// solicitante. El correo sale DESDE la cuenta que corre este GAS (crm.posgrado).
+// Desplegar como Web App (Ejecutar como: Yo · Acceso: cualquiera) y poner la
+// URL /exec en portal_login.html.
+// ══════════════════════════════════════════════════════════════
+
+function doPost(e) {
+  var out = ContentService.createTextOutput();
+  out.setMimeType(ContentService.MimeType.JSON);
+  try {
+    var data = (e && e.postData && e.postData.contents) ? JSON.parse(e.postData.contents) : {};
+    var dni  = String(data.dni || '').trim();
+    if (!dni) { out.setContent(JSON.stringify({ ok:false, error:'Sin DNI' })); return out; }
+
+    // Buscar al usuario. Si no existe, respondemos ok igual (no revelar si está registrado).
+    var us = _sbGet('usuarios?select=dni,nombre_completo,email,rol&dni=eq.' + encodeURIComponent(dni));
+    if (!us.length) { out.setContent(JSON.stringify({ ok:true })); return out; }
+    var u = us[0];
+
+    var ahora = Utilities.formatDate(new Date(), 'America/Argentina/Mendoza', 'dd/MM/yyyy HH:mm');
+    var subject = 'Solicitud de reseteo de contraseña — ' + (u.nombre_completo || ('DNI ' + dni));
+    var cuerpo =
+      'Se recibió una solicitud de reseteo de contraseña desde el portal.\n\n' +
+      'Datos del solicitante:\n' +
+      '• DNI: '         + (u.dni || dni)        + '\n' +
+      '• Nombre: '      + (u.nombre_completo||'—') + '\n' +
+      '• Email: '       + (u.email||'—')        + '\n' +
+      '• Rol: '         + (u.rol||'—')          + '\n' +
+      '• Fecha y hora: '+ ahora                 + '\n\n' +
+      'La Secretaría de Posgrado se contactará para restablecer el acceso.';
+
+    var destinatarios = [EMAIL_ADMIN_RESET];
+    if (u.email) destinatarios.push(u.email);
+
+    MailApp.sendEmail(destinatarios.join(','), subject, cuerpo, { name: NOMBRE_INST });
+    Logger.log('Solicitud reseteo enviada: ' + destinatarios.join(', '));
+    out.setContent(JSON.stringify({ ok:true }));
+  } catch(err) {
+    Logger.log('doPost reset error: ' + err.message);
+    out.setContent(JSON.stringify({ ok:false, error: err.message }));
+  }
+  return out;
+}
+
+// Health check (para probar el despliegue abriendo la URL en el navegador).
+function doGet() {
+  return ContentService.createTextOutput(JSON.stringify({ ok:true, msg:'SiGPo recibos activo' }))
+    .setMimeType(ContentService.MimeType.JSON);
 }
 
 // ══════════════════════════════════════════════════════════════
