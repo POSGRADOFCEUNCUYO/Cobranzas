@@ -14,7 +14,7 @@
  *  · Todos los días a las 07:00 → Alerta cuotas A_DEFINIR
  *    Se dispara UNA SOLA VEZ cuando quedan 45 días o menos
  *    para el vencimiento de una cuota sin monto definido.
- *    Destinatarios: administrador, secretaría y gerencia (global) + coordinador y profesor del programa.
+ *    Destinatarios: administrador y secretaría (global) + coordinador y profesor del programa.
  * ══════════════════════════════════════════════════════════════
  */
 
@@ -76,9 +76,9 @@ function alertarCuotasADefinir() {
   var cohMap     = _indexar(cohortes,  'cohorte_id');
   var progMap    = _indexar(programas, 'programa_id');
 
-  // Back-office global que SIEMPRE recibe (sin restricción de programa): ADMINISTRADOR, SECRETARIA y GERENTE.
-  // NO incluye COOPERADORA (no debe recibir estas alertas).
-  var globalStaff  = _sbGet('usuarios?select=email&rol=in.(ADMINISTRADOR,SECRETARIA,GERENTE_COOPERADORA)&estado_usuario=eq.ACTIVO');
+  // Back-office global que SIEMPRE recibe (sin restricción de programa): ADMINISTRADOR y SECRETARIA.
+  // NO incluye GERENTE_COOPERADORA ni COOPERADORA (no deben recibir estas alertas).
+  var globalStaff  = _sbGet('usuarios?select=email&rol=in.(ADMINISTRADOR,SECRETARIA)&estado_usuario=eq.ACTIVO');
   var globalEmails = _uniq(globalStaff.filter(function(r){ return r.email; }).map(function(r){ return r.email; }));
 
   // Coordinadores y profesores vinculados a cada programa (tabla coordinadores_programas).
