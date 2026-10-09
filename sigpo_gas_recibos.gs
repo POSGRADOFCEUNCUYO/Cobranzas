@@ -20,7 +20,8 @@
  *                  Recibos viejos sin "Cobro <id>" caen a la VÍA 2 (programa+período+DNI).
  *      – FACTURA → extrae el DNI/CUIT/CUIL del ESTUDIANTE, lo busca y guarda la
  *                  factura en la tabla `facturas` (vinculada al estudiante, NO a una cuota)
- *  · Normaliza el DNI: maneja CUIT (XX-XXXXXXXX-X) y ceros a la izquierda
+ *  · El identificador del estudiante es un string opaco (puede tener letras,
+ *    guiones o puntos); se compara como texto, sin tratarlo como número ni CUIT
  *  · Sube el PDF a Storage; si no puede asignar, avisa por email al admin
  *  · Etiqueta el thread de Gmail para no procesarlo dos veces
  * ══════════════════════════════════════════════════════════════
@@ -250,7 +251,7 @@ function _parsearRecibo(texto) {
   //    Se mantiene por compatibilidad con recibos ya emitidos antes del cambio.
   if (!datos.periodo_bd || !datos.programa_id) {
     var reNuevo = new RegExp(
-      'Concepto\\s*:?\\s*(\\d{1,3})\\s+(.+?)\\s+(' + MESES + ')\\s+(?:de\\s+)?(\\d{4})\\s+(\\d{7,8})\\b', 'i'
+      'Concepto\\s*:?\\s*(\\d{1,3})\\s+(.+?)\\s+(' + MESES + ')\\s+(?:de\\s+)?(\\d{4})\\s+([A-Za-z0-9][A-Za-z0-9.\\-]{4,19})', 'i'
     );
     var mConc = texto.match(reNuevo);
     if (mConc) {
@@ -276,34 +277,34 @@ function _parsearRecibo(texto) {
     }
   }
 
-  // DNI: si aún no lo tenemos, tomarlo del campo CUIT del cliente.
-  if (!datos.dni_normalizado) {
-    var mCuit = texto.match(/C\.U\.I\.T\.\s*:?\s*([\d.\-]{7,14})/);
-    if (mCuit) {
-      datos.cuit_raw        = mCuit[1];
-      datos.dni_normalizado = _normalizarDni(mCuit[1]);
-    }
-  }
+  // (Se quitó el fallback que tomaba el DNI del campo C.U.I.T. del cliente:
+  //  el identificador es un string opaco y no se deriva de un CUIT. Si la
+  //  leyenda no trae el identificador, el recibo queda para revisión manual.)
 
   return datos;
 }
 
 // ══════════════════════════════════════════════════════════════
-// NORMALIZAR DNI
-// Maneja: "20-07654321-3" → "7654321"
-//         "07654321"      → "7654321"
-//         "24207661"      → "24207661"
+// CANONIZAR IDENTIFICADOR (string opaco)
+// El identificador es TEXTO: puede tener letras, guiones o puntos y no tiene
+// largo fijo. Ejemplos reales: "30123456", "adm32627501", "A02709800",
+// "15.699.371-9". NO se interpreta como número ni CUIT; solo se le quitan
+// espacios. La comparación se hace con _mismoId (ignora may/min).
 // ══════════════════════════════════════════════════════════════
 
 function _normalizarDni(valor) {
-  var dig = valor.replace(/\D/g, '');
-  if (dig.length === 11) {
-    // Es CUIT/CUIL: los 8 dígitos del medio son el DNI (posiciones 2 a 9)
-    dig = dig.substring(2, 10);
-  }
-  // Quitar ceros a la izquierda (resuelve el caso DNI guardado sin 0 inicial)
-  dig = dig.replace(/^0+/, '') || '0';
-  return dig;
+  // El identificador del estudiante es un STRING OPACO: puede tener letras,
+  // guiones o puntos y no tiene largo fijo. NO se interpreta como número ni
+  // como CUIT. Solo se canoniza en forma suave (sin espacios); la comparación
+  // en sí se hace sin distinguir mayúsculas/minúsculas (ver _mismoId).
+  return String(valor == null ? '' : valor).trim().replace(/\s+/g, '');
+}
+
+// Compara dos identificadores como texto: canoniza ambos y los coteja
+// ignorando mayúsculas/minúsculas. No altera el contenido (no saca ceros,
+// no toca letras/guiones/puntos).
+function _mismoId(a, b) {
+  return _normalizarDni(a).toLowerCase() === _normalizarDni(b).toLowerCase();
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -341,9 +342,9 @@ function _buscarCobro(dniNorm, programaId, periodoBD, cohorteToken) {
     '&periodo=ilike.' + encodeURIComponent(periodoBD)
   );
 
-  // Filtrar por DNI normalizado (maneja ceros a la izquierda en la BD)
+  // Filtrar comparando el identificador como string (sin distinguir may/min).
   var coincidencias = cobros.filter(function(c) {
-    return (String(c.dni).replace(/^0+/, '') || '0') === dniNorm;
+    return _mismoId(c.dni, dniNorm);
   });
 
   if (coincidencias.length === 0) return null;
@@ -376,8 +377,7 @@ function _buscarCobroPorId(cobroId, dniNorm, datos) {
 
   // Chequeo DNI BLANDO: avisa, no descarta.
   if (dniNorm) {
-    var bdDni = (String(cobro.dni).replace(/^0+/, '') || '0');
-    if (bdDni !== dniNorm) {
+    if (!_mismoId(cobro.dni, dniNorm)) {
       var aviso = 'DNI del recibo (' + dniNorm + ') no coincide con el del cobro ' +
                   cobro.cobro_id + ' (' + cobro.dni + '). Se asigna igual por cobro_id.';
       Logger.log('⚠ ' + aviso);
@@ -613,21 +613,31 @@ function _parsearFactura(texto) {
 // ══════════════════════════════════════════════════════════════
 
 function _extraerDniEstudiante(texto) {
-  // Campo "Corresponde a" — con o sin la etiqueta "DNI"
-  //   ej: "Corresponde a 28123456"  ó  "Corresponde a LEZZIERI, Mariela DNI 28123456"
-  var mCorr = texto.match(/Corresponde a[^\n]*?\b(\d{7,8})\b/i);
-  if (mCorr) return _normalizarDni(mCorr[1]);
-
-  return null;
+  // En la línea "Corresponde a ..." conviven el NOMBRE y el IDENTIFICADOR.
+  // El identificador puede ser alfanumérico (letras, guiones, puntos) y de
+  // largo variable; lo que lo distingue del nombre es que SIEMPRE contiene al
+  // menos un dígito y el nombre no. Tomamos el último token con dígito de la línea.
+  //   ej: "Corresponde a 28123456"
+  //       "Corresponde a LEZZIERI, Mariela DNI 28123456"
+  //       "Corresponde a LUCERO D AMELIO, Evelyn adm32627501"
+  //       "Corresponde a RODRIGUEZ QUEZADA, Estela 15.699.371-9"
+  var mLinea = texto.match(/Corresponde a[^\n]*/i);
+  if (!mLinea) return null;
+  var tokens = mLinea[0].match(/[A-Za-z0-9][A-Za-z0-9.\-]*\d[A-Za-z0-9.\-]*/g);
+  if (!tokens || !tokens.length) return null;
+  return _normalizarDni(tokens[tokens.length - 1]);
 }
 
 // ══════════════════════════════════════════════════════════════
-// BUSCAR ESTUDIANTE POR DNI (dni en la BD es numérico, sin ceros previos)
+// BUSCAR ESTUDIANTE POR IDENTIFICADOR (string opaco; sin distinguir may/min)
 // ══════════════════════════════════════════════════════════════
 
 function _buscarEstudiante(dniNorm) {
-  var ests = _sbGet('estudiantes?select=dni,nombre,apellido&dni=eq.' + dniNorm);
-  return ests.length ? ests[0] : null;
+  // ilike = igualdad exacta sin distinguir mayúsculas/minúsculas (los
+  // identificadores no usan % ni _). Se reconfirma en JS con _mismoId.
+  var ests = _sbGet('estudiantes?select=dni,nombre,apellido&dni=ilike.' + encodeURIComponent(dniNorm));
+  var m = ests.filter(function(e) { return _mismoId(e.dni, dniNorm); });
+  return m.length ? m[0] : null;
 }
 
 // ══════════════════════════════════════════════════════════════
