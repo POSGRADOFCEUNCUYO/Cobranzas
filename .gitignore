@@ -4,3 +4,4 @@ plantilla_importacion_*.xlsx
 # Temporales
 _gen_*.py
 *.tmp
+.claude/settings.local.json
