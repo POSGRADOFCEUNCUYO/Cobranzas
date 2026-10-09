@@ -613,19 +613,24 @@ function _parsearFactura(texto) {
 // ══════════════════════════════════════════════════════════════
 
 function _extraerDniEstudiante(texto) {
-  // En la línea "Corresponde a ..." conviven el NOMBRE y el IDENTIFICADOR.
-  // El identificador puede ser alfanumérico (letras, guiones, puntos) y de
-  // largo variable; lo que lo distingue del nombre es que SIEMPRE contiene al
-  // menos un dígito y el nombre no. Tomamos el último token con dígito de la línea.
-  //   ej: "Corresponde a 28123456"
-  //       "Corresponde a LEZZIERI, Mariela DNI 28123456"
-  //       "Corresponde a LUCERO D AMELIO, Evelyn adm32627501"
-  //       "Corresponde a RODRIGUEZ QUEZADA, Estela 15.699.371-9"
+  // En la línea "Corresponde a ..." conviven el IDENTIFICADOR y texto de ruido
+  // (el nombre y/o conceptos como "Bonificación 0.00 % Intereses"). El
+  // identificador es el PRIMER token con dígito que NO sea un importe/porcentaje
+  // (ej. 0.00, 6,250.00). El nombre no tiene dígitos, así que queda descartado.
+  //   "Corresponde a 34210566 Bonificación 0.00 % Intereses" → 34210566
+  //   "Corresponde a LEZZIERI, Mariela DNI 28123456"         → 28123456
+  //   "Corresponde a LUCERO D AMELIO, Evelyn adm32627501"    → adm32627501
+  //   "Corresponde a RODRIGUEZ QUEZADA, Estela 15.699.371-9" → 15.699.371-9
   var mLinea = texto.match(/Corresponde a[^\n]*/i);
   if (!mLinea) return null;
-  var tokens = mLinea[0].match(/[A-Za-z0-9][A-Za-z0-9.\-]*\d[A-Za-z0-9.\-]*/g);
-  if (!tokens || !tokens.length) return null;
-  return _normalizarDni(tokens[tokens.length - 1]);
+  var tokens = mLinea[0].match(/[A-Za-z0-9][A-Za-z0-9.\-]*/g) || [];
+  for (var i = 0; i < tokens.length; i++) {
+    var t = tokens[i];
+    if (!/\d/.test(t)) continue;                             // sin dígito = parte del nombre
+    if (/^\d{1,3}([.,]\d{3})*[.,]\d{1,2}$/.test(t)) continue; // importe/porcentaje: 0.00, 6,250.00
+    return _normalizarDni(t);
+  }
+  return null;
 }
 
 // ══════════════════════════════════════════════════════════════
