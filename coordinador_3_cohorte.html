@@ -1060,6 +1060,9 @@ async function exportarExcel() {
 
 function irEstudiante(dni) { navegar('detalle_estudiante_cohorte.html?dni=' + encodeURIComponent(String(dni)) + (COHORTE_ID ? '&cohorte_id=' + encodeURIComponent(COHORTE_ID) : '') + (PROGRAMA_ID ? '&programa_id=' + encodeURIComponent(PROGRAMA_ID) : '')); }
 
+// Web App (GAS crm.posgrado) que envía los correos de reseteo. Misma URL que en portal_login.html.
+var GAS_RESET_URL = 'https://script.google.com/macros/s/AKfycbwP2EWZyg0Tay-haaUj68EVqPx6_r9WdlZMt3NjhajEU0oqyBg7nQC4lapN5S8JgFvnyQ/exec';
+
 // Resetea la contraseña de un estudiante de la cohorte al valor de su DNI.
 // Llama al RPC resetear_password_usuario, que valida en el servidor que el
 // coordinador solo pueda resetear a estudiantes de SUS programas/cohortes.
@@ -1073,6 +1076,8 @@ async function resetClave(dni, nombre) {
         var res = r.data || {};
         if (!res.ok) throw new Error(res.error || 'No se pudo resetear');
         toast('Contraseña de ' + nombre + ' reseteada al DNI ✓', 'ok');
+        // Avisar al alumno por correo (fire-and-forget) con sus datos de acceso.
+        try { fetch(GAS_RESET_URL, { method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify({ dni: String(dni), action: 'acceso' }) }); } catch(_e) {}
     } catch (e) { console.error(e); toast('Error: ' + (e.message || e), 'err'); }
 }
 function volverADashboard() { navegar('coordinador_1_dashboard.html'); }

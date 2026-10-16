@@ -318,6 +318,10 @@
 <script>
 var EDGE_URL = SUPABASE_URL + '/functions/v1/crear-usuario';
 var _us=[],_pr=[],_cohProg={},_frol='TODOS',_aid=null,_anm='',_adni='',_impF=null,_coordAsigs=[],_estInsc=[];
+// Web App (GAS crm.posgrado) que envía los correos de reseteo. Misma URL que en portal_login.html.
+var GAS_RESET_URL='https://script.google.com/macros/s/AKfycbwP2EWZyg0Tay-haaUj68EVqPx6_r9WdlZMt3NjhajEU0oqyBg7nQC4lapN5S8JgFvnyQ/exec';
+// Avisa al alumno por correo (fire-and-forget) con sus datos de acceso tras el reseteo.
+function _avisarAccesoAlumno(dni){ try{ fetch(GAS_RESET_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({dni:String(dni),action:'acceso'})}); }catch(_e){} }
 
 document.addEventListener('DOMContentLoaded',async function(){
     var ses=await requireAuth();
@@ -599,6 +603,7 @@ async function ejReset(){
         var res=r.data||{};
         if(!res.ok)throw new Error(res.error||'No se pudo resetear');
         toast('Contraseña de '+_anm+' reseteada al DNI ✓','ok');
+        _avisarAccesoAlumno(_adni);
         cerM('m-reset');
     }catch(e){toast('Error: '+(e.message||e),'err');}
     finally{spin(false);}
