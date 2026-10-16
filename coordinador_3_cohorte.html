@@ -614,7 +614,7 @@ function normalizarColumna(c) {
 function normalizarEstudiante(e) {
     const cobrosRaw = Array.isArray(e.cobros) ? e.cobros : [];
     return {
-        dni: Number(e.dni || e.documento || 0),
+        dni: String(e.dni || e.documento || ''),
         apellido: e.apellido || '',
         nombre: e.nombre || '',
         email: e.email || e.correo || '',
@@ -702,6 +702,7 @@ var CT_VIEW = {
     leadingHeader:
           '<th class="col-check"><input type="checkbox" id="chk-all" onchange="toggleAll(this)" aria-label="Seleccionar todos los estudiantes"></th>'
         + '<th class="col-name">Apellido y Nombre</th>'
+        + '<th style="min-width:150px;">DNI</th>'
         + '<th style="min-width:74px;text-align:center;">Desc %</th>'
         + '<th class="col-email">Correo electrónico</th>'
         + '<th style="min-width:88px;text-align:center;background:#f0ede6;font-size:10px;font-weight:600;color:#555;text-transform:uppercase;border-bottom:2px solid #c5c5c5;border-right:1px solid #ddd;">Estado<br>Cohorte</th>',
@@ -752,8 +753,9 @@ var CT_VIEW = {
 
         // El coordinador solo consulta el estado del estudiante (no da de baja/alta).
         tr.innerHTML = `
-          <td style="text-align:center;"><input type="checkbox" class="chk-e" data-dni="${est.dni}" onchange="onChk()"></td>
-          <td class="cell-name" onclick="irEstudiante(${est.dni})">${escapeHtml(est.apellido)}, ${escapeHtml(est.nombre)}</td>
+          <td style="text-align:center;"><input type="checkbox" class="chk-e" data-dni="${escapeHtml(est.dni)}" onchange="onChk()"></td>
+          <td class="cell-name" onclick="irEstudiante('${escapeJs(est.dni)}')">${escapeHtml(est.apellido)}, ${escapeHtml(est.nombre)}</td>
+          <td class="cell-dni" style="font-variant-numeric:tabular-nums;white-space:nowrap;">${escapeHtml(est.dni)} <button onclick="event.stopPropagation();resetClave('${escapeJs(est.dni)}','${escapeJs(est.apellido + ', ' + est.nombre)}')" title="Resetear contraseña al DNI" style="border:none;background:#e0f2f1;color:#00695c;border-radius:5px;padding:2px 6px;cursor:pointer;font-size:12px;">🔑</button></td>
           <td class="cell-desc" style="color:${est.descuento_porcentaje>0?'var(--success)':'#aaa'}">
             ${est.descuento_porcentaje}%
           </td>
@@ -1057,6 +1059,22 @@ async function exportarExcel() {
 
 
 function irEstudiante(dni) { navegar('detalle_estudiante_cohorte.html?dni=' + encodeURIComponent(String(dni)) + (COHORTE_ID ? '&cohorte_id=' + encodeURIComponent(COHORTE_ID) : '') + (PROGRAMA_ID ? '&programa_id=' + encodeURIComponent(PROGRAMA_ID) : '')); }
+
+// Resetea la contraseña de un estudiante de la cohorte al valor de su DNI.
+// Llama al RPC resetear_password_usuario, que valida en el servidor que el
+// coordinador solo pueda resetear a estudiantes de SUS programas/cohortes.
+async function resetClave(dni, nombre) {
+    if (!dni) { toast('Ese estudiante no tiene DNI cargado', 'err'); return; }
+    if (!confirm('¿Resetear la contraseña de ' + nombre + ' (DNI ' + dni + ')?\n\nLa contraseña volverá a ser el DNI y, al ingresar, se le pedirá definir una nueva.')) return;
+    try {
+        var sb = await getSupabase();
+        var r = await sb.rpc('resetear_password_usuario', { p_dni: String(dni) });
+        if (r.error) throw r.error;
+        var res = r.data || {};
+        if (!res.ok) throw new Error(res.error || 'No se pudo resetear');
+        toast('Contraseña de ' + nombre + ' reseteada al DNI ✓', 'ok');
+    } catch (e) { console.error(e); toast('Error: ' + (e.message || e), 'err'); }
+}
 function volverADashboard() { navegar('coordinador_1_dashboard.html'); }
 
 async function cargarNotificaciones() {
