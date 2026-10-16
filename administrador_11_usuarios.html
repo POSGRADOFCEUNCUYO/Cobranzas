@@ -51,6 +51,7 @@
         .ba:hover{transform:scale(1.05);box-shadow:0 2px 8px rgba(0,0,0,.12)}
         .be{background:#e3f2fd;color:#1565c0}.bb{background:#fff8e1;color:#e65100}
         .blt{background:#d4edda;color:#1e7e44}.bd2{background:#fce4ec;color:#c62828}.berase{background:#f3e5f5;color:#6a1b9a}
+        .brp{background:#e0f2f1;color:#00695c}
         .empty{text-align:center;padding:48px;color:#aaa}.ei{font-size:48px;margin-bottom:12px}
         .legend{background:white;border-radius:12px;padding:12px 22px;margin-top:14px;display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:#555}
         .mo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center}
@@ -250,6 +251,18 @@
     </div>
 </div>
 
+<!-- MODAL RESET CLAVE -->
+<div class="mo" id="m-reset">
+    <div class="mb sm">
+        <div class="mh" style="background:linear-gradient(135deg,#00695c,#0097a7);"><div><h2>🔑 Resetear contraseña</h2></div><button class="mc" onclick="cerM('m-reset')">×</button></div>
+        <div class="mbody">
+            <div class="ci">🔑</div><div class="ct" id="reset-t">—</div>
+            <div class="abox" style="background:#e0f2f1;border-left:4px solid #00695c;color:#00695c;margin-top:12px;">La contraseña volverá a ser el <strong>DNI</strong>. Al ingresar, se le pedirá definir una nueva.</div>
+        </div>
+        <div class="mfoot"><button class="btn bg" onclick="cerM('m-reset')">Cancelar</button><button class="btn bs" onclick="ejReset()">🔑 Confirmar</button></div>
+    </div>
+</div>
+
 <!-- MODAL ELIMINAR -->
 <div class="mo" id="m-del">
     <div class="mb sm">
@@ -304,7 +317,7 @@
 <script src="supabase.js?v=20250529"></script>
 <script>
 var EDGE_URL = SUPABASE_URL + '/functions/v1/crear-usuario';
-var _us=[],_pr=[],_cohProg={},_frol='TODOS',_aid=null,_anm='',_impF=null,_coordAsigs=[],_estInsc=[];
+var _us=[],_pr=[],_cohProg={},_frol='TODOS',_aid=null,_anm='',_adni='',_impF=null,_coordAsigs=[],_estInsc=[];
 
 document.addEventListener('DOMContentLoaded',async function(){
     var ses=await requireAuth();
@@ -384,6 +397,7 @@ function renderTabla(){
         var est=u.estado_usuario||(u.activo?'ACTIVO':'BLOQUEADO');
         var pstr=u._asigs.length?esc(u._asigs.join(', ')):'—';
         var accs='<button class="ba be" onclick="abrirU('+u.usuario_id+')">✏️ Editar</button>';
+        accs+='<button class="ba brp" onclick="confReset('+u.usuario_id+',\''+ns(u.dni||'')+'\',\''+ns((u.apellido||'')+' '+(u.nombre||''))+'\')">🔑 Clave</button>';
         if(est==='ACTIVO'){accs+='<button class="ba bb" onclick="confBaja('+u.usuario_id+',\''+ns((u.apellido||'')+' '+(u.nombre||''))+'\')">⛔ Baja</button>';}
         else{accs+='<button class="ba blt" onclick="confAlta('+u.usuario_id+',\''+ns((u.apellido||'')+' '+(u.nombre||''))+'\')">✅ Alta</button>';}
         accs+='<button class="ba bd2" onclick="confDel('+u.usuario_id+',\''+ns((u.apellido||'')+' '+(u.nombre||''))+'\')">🗑️ Eliminar</button>';
@@ -573,6 +587,21 @@ async function ejAlta(){
     spin(true);
     try{var sb=await getSupabase();var r=await sb.from('usuarios').update({activo:true,estado_usuario:'ACTIVO'}).eq('usuario_id',_aid);if(r.error)throw r.error;toast(_anm+' → Alta ✓','ok');cerM('m-alta');await cargar();}
     catch(e){toast('Error: '+e.message,'err');}finally{spin(false);}
+}
+function confReset(id,dni,nm){_aid=id;_adni=dni;_anm=nm;document.getElementById('reset-t').textContent=nm+(dni?' (DNI '+dni+')':'');abrM('m-reset');}
+async function ejReset(){
+    if(!_adni){toast('Este usuario no tiene DNI cargado','err');return;}
+    spin(true);
+    try{
+        var sb=await getSupabase();
+        var r=await sb.rpc('resetear_password_usuario',{p_dni:String(_adni)});
+        if(r.error)throw r.error;
+        var res=r.data||{};
+        if(!res.ok)throw new Error(res.error||'No se pudo resetear');
+        toast('Contraseña de '+_anm+' reseteada al DNI ✓','ok');
+        cerM('m-reset');
+    }catch(e){toast('Error: '+(e.message||e),'err');}
+    finally{spin(false);}
 }
 function confDel(id,nm){_aid=id;_anm=nm;document.getElementById('del-t').textContent=nm;abrM('m-del');}
 async function ejDel(){
