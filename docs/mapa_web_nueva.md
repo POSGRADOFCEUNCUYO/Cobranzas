@@ -1,4 +1,4 @@
-# Mapa de la nueva web — Portal de Cobranzas (SiGPo v2)
+# Mapa de la nueva web — Portal de Pagos y Cobranzas
 
 > Documento vivo de diseño. Se va actualizando a medida que definimos.
 > **Última actualización:** 2026-10-19 (c)
