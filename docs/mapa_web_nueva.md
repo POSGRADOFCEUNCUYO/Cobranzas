@@ -1,7 +1,7 @@
 # Mapa de la nueva web — Portal de Cobranzas (SiGPo v2)
 
 > Documento vivo de diseño. Se va actualizando a medida que definimos.
-> **Última actualización:** 2026-10-19
+> **Última actualización:** 2026-10-19 (b)
 > **Estado:** análisis / diseño (no implementado)
 
 Leyenda: 🔵 **compartida/adaptable** (varios roles, cambia según el rol) · 🟢 **propia de un rol**
@@ -14,16 +14,18 @@ Leyenda: 🔵 **compartida/adaptable** (varios roles, cambia según el rol) · �
 - Principio: **páginas compartidas y adaptables por defecto**; página propia de un rol solo cuando la experiencia es genuinamente distinta (ej. el estudiante pagando).
 - **Pago online con Mercado Pago** reemplaza la carga manual de comprobantes. Automatización con **Tango Gestión Nube** = fase 2.
 - **Los permisos reales viven en el servidor** (RLS / RPC). La pantalla solo muestra/oculta.
+- **Paginado:** las listas/tablas largas se muestran **paginadas** (de a N filas), no todo de una.
+- **Roles:** "Profesor" pasa a llamarse **Director**.
 
 ---
 
 ## 1. Roles
-Administrador · Secretaría · Coordinador · Profesor (Directores) · Cooperadora · Gerente Cooperadora · Estudiante.
+Administrador · Secretaría · Coordinador · Director (antes "Profesor") · Cooperadora · Gerente Cooperadora · Estudiante.
 
 - **Administrador:** ve y hace **todo**.
 - **Coordinador:** acotado a **sus** programas/agrupaciones.
 - **Cooperadora:** **alcance global** (ente de control). Puede **armar/editar la estructura** (programas, agrupaciones, inscripciones, montos de cuotas). **Paga a proveedores** y **emite el comprobante de transferencia** (la transferencia se hace por fuera, en el home banking por CBU; el sistema solo la registra). Hace **liquidaciones** de divisas. *(Ya no aprueba comprobantes de alumnos: MP confirma solo.)*
-- **Profesor / Secretaría / Gerente Cooperadora / Estudiante:** a definir en la matriz.
+- **Director (antes Profesor) / Secretaría / Gerente Cooperadora / Estudiante:** a definir en la matriz.
 
 ---
 
@@ -51,7 +53,7 @@ Ejemplo (Doctorado): 5 agrupaciones (Cohorte 2024/2025/2026 + Readmisiones 2026 
 - 🔵 **Cambio de contraseña** — obligatoria en el primer ingreso.
 
 ### B. Inicio (Dashboard)
-- 🔵 **Dashboard de gestión** (Admin, Secretaría, Coordinador, Cooperadora, Profesor) — una sola página adaptable:
+- 🔵 **Dashboard de gestión** (Admin, Secretaría, Coordinador, Cooperadora, Director) — una sola página adaptable:
   - **Filtro Programa → Agrupaciones (con tildes):** recalcula todas las tarjetas para lo seleccionado.
   - **Tarjetas:** 📚 Cohortes (solo tipos "cuenta como cohorte", sin desglose) · Estudiantes (por inscripción) · Activos · Bajas · 💳 Al día · Al corriente/mes pendiente · En mora · 💰 Recaudado ARS · Recaudado USD (pendiente de liquidar) · Egresos · Saldo.
   - **Acceso "Liquidar"** → flujo de liquidación de divisas.
@@ -62,6 +64,7 @@ Ejemplo (Doctorado): 5 agrupaciones (Cohorte 2024/2025/2026 + Readmisiones 2026 
 - 🔵 **Programas / Cursos** — ABM del Admin; otros ven lo suyo.
 - 🔵 **Detalle de Programa** — sus agrupaciones, cada una con su tipo.
 - 🔵 **Detalle de Agrupación (cohorte/edición)** — grilla estudiantes × cuotas + sus valores de honorarios.
+  - La **secuencia de cuotas** (encabezados: Cuota N – mes – valor general) es un **PLAN DE REFERENCIA** de la agrupación, para que el administrativo sepa a qué cuota/mes corresponde y el valor general. **El monto real de cada estudiante puede diferir** (descuento, otra forma de pago, paga más).
 - 🔵 **Detalle de Estudiante** — ficha con todas sus cuotas/estados.
 
 ### D. Pagos — lado Estudiante
@@ -83,7 +86,7 @@ Ejemplo (Doctorado): 5 agrupaciones (Cohorte 2024/2025/2026 + Readmisiones 2026 
 - 🔵 **Libre deudas emitidos** — consulta para gestión.
 
 ### F. Pagos — lado Gestión
-- 🔵 **Gestión de cuotas** (dentro de la Agrupación / ficha) — editar montos, estados, exenciones (mora/descuento), **marca manual de pago** y **pago parcial** para excepciones (transferencias fuera de MP).
+- 🔵 **Gestión de cuotas** (dentro de la Agrupación / ficha) — editar montos, estados, exenciones (mora/descuento), **quitar mora/descuento en una o varias cuotas seleccionadas** de un estudiante, **marca manual de pago** y **pago parcial** para excepciones (transferencias fuera de MP).
 - 🔵 **Historial de pagos** — gestión ve todos; el alumno, los suyos.
 - ❌ **Eliminado:** subir comprobante (alumno) y aprobar/rechazar comprobantes.
 
@@ -103,14 +106,38 @@ Ejemplo (Doctorado): 5 agrupaciones (Cohorte 2024/2025/2026 + Readmisiones 2026 
 - *(Reseteo del Coordinador vive dentro de la Agrupación.)*
 
 ### J. Reportes
-- 🔵 **Reportes / Planificación financiera** · 🔵 **Morosidad / Ingresos / Deserción / Comparativos** (alcance por rol).
+Inventario (el "cómo se arma cada uno" se detalla reporte por reporte más adelante).
+Alcance por rol: **Admin y Cooperadora = global**; **Coordinador/Director = sus programas**; **Secretaría = operativos (estado de pagos, morosidad)**.
+
+- 🔵 **Planificación financiera** (estratégico) — liquidez, escenarios de flujo de caja, métricas, deserción, aging; incluye consultor IA. (Admin/Cooperadora.)
+- 🔵 **Ingresos ejecutados** — lo efectivamente cobrado, por período/programa/agrupación.
+- 🔵 **Egresos ejecutados** — lo efectivamente pagado.
+- 🔵 **Egresos vs Ingresos** — comparación / resultado.
+- 🔵 **Proyección de ingresos** — cuotas futuras por cobrar (confirmadas + estimadas).
+- 🔵 **Proyección de egresos** — gastos futuros (recurrentes, dictado, eventos estimados).
+- 🔵 **Morosidad** — cuotas/estudiantes en mora.
+- 🔵 **Estado de pagos** — situación de cada estudiante/cuota (al día / al corriente / en mora).
+- 🔵 **Impacto de descuentos** — cuánto se resignó por descuentos.
+- 🔵 **Tasa de deserción** — bajas / abandono.
+- 🔵 **Comparativo** — entre programas / agrupaciones / períodos.
 
 ### K. Conciliación contable (Fase 2 – Tango)
 - 🔵 **Recibos / Facturas Tango** — asignación de comprobantes (Admin / Cooperadora / Secretaría).
 
+**Integración por API — "factura = deuda" (opciones):**
+- **Opción 1 (recomendada):** Tango manda, el sistema escucha → al emitirse una **factura** suma deuda al estudiante; **nota de débito** suma; **nota de crédito** resta.
+- **Opción 2:** el sistema manda, Tango refleja.
+- **Opción 3:** bidireccional.
+
+**Enlace comprobante → cuota (el problema a resolver):**
+- El estudiante se identifica por su **ID de Tango** (único por estudiante).
+- La **factura** muestra en el **artículo** el **programa/curso** y el **monto**.
+- El **recibo** muestra qué **factura** paga, el **ID del estudiante** y el **monto** (puede ser **menor** que la factura: la factura cubre las cuotas definidas y el recibo paga una cuota).
+- Falta vincular a la **cuota puntual**. Opciones: (a) que el **artículo** incluya el **período/cuota**; (b) **inferir** por monto + cuotas pendientes del estudiante en ese programa; (c) una **referencia explícita** (tipo leyenda "Cobro id período DNI"). Sugerido: **(a) + (b)**.
+
 ### L. Configuración (solo Admin)
-- 🟢 **Parámetros** — mora, descuentos (incluye "¿pierde el descuento al entrar en mora?"), datos bancarios, emails automáticos.
-- 🟢 **Tipos de agrupación** — con "¿Cuenta como cohorte?".
+- 🟢 **Parámetros** — mora, descuentos (incluye "¿pierde el descuento al entrar en mora?"), emails automáticos. *(Datos bancarios: ya no, se paga por MP.)*
+- 🟢 **Tipos de agrupación** — lista simple: nombre del tipo + interruptor "¿Cuenta como cohorte?" + editar/eliminar + "Nuevo tipo". Al crear/editar una agrupación, se elige el tipo de esta lista.
 - 🟢 **Etiquetas de gastos** — catálogo (con valor / monto libre).
 - 🟢 **Mercado Pago** — credenciales/config.
 
@@ -170,8 +197,12 @@ Al cargar un gasto se elige su **destino**:
 - Flujo: el front pide al backend (Edge Function) crear el pago → MP → el alumno paga → **webhook** verificado del lado servidor → se marca(n) la(s) cuota(s) ABONADA(s).
 - **La verdad del pago es el webhook verificado**, no la pantalla de "éxito".
 - Una orden de pago puede cubrir **varias cuotas** (del mismo programa): se guarda la lista de cuotas antes de pagar y se reconcilia por esa lista (idempotente).
-- El **access token** de MP vive solo en el servidor.
-- Estados a manejar: aprobado / pendiente (offline, ej. Rapipago) / rechazado.
+- El **access token** de MP vive solo en el servidor; la **public key** en el frontend (credenciales test/producción del panel de MP).
+- **Estados del PAGO** (no del recibo):
+  - **Aprobado** → la cuota pasa a ABONADA.
+  - **Pendiente** → pago **en proceso** por medios offline (efectivo/Rapipago/PagoFácil): MP da un cupón, el alumno paga en el kiosco y MP confirma horas después. Mientras tanto queda "pendiente". *(No es "recibo pendiente"; el recibo fiscal es tema de Tango, fase 2.)*
+  - **Rechazado** → no se registra pago.
+- Con MP se paga el **monto exacto** → no hay "pago de más". El pago de más solo ocurre por **transferencia**, que se maneja por fuera.
 
 ---
 
@@ -183,9 +214,10 @@ Al cargar un gasto se elige su **destino**:
 ---
 
 ## 7. Pendientes de definir
-- **Estimación de defensas de tesis:** ¿a qué nivel se carga, programa/año o cohorte? *(en discusión)*
-- **Pago de más por transferencia:** cómo tratar el "saldo a favor".
-- **Perfiles de Secretaría, Profesor, Gerente Cooperadora, Estudiante** (detalle).
+- **Estimación de defensas de tesis:** ¿a qué nivel se carga, programa/año o cohorte? *(en discusión)* — sirve para proyectar el gasto de jurado y director de tesis.
+- **Perfiles de Secretaría, Director (antes Profesor), Gerente Cooperadora, Estudiante** (detalle).
+- **Tango (fase 2):** elegir opción de integración (§K) y resolver el enlace recibo → cuota.
+- **Reportes:** detallar "cómo se arma" cada uno (§J).
 - **Matriz Rol × Página/Acción** completa.
 
 ---
