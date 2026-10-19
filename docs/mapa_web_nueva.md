@@ -1,7 +1,7 @@
 # Mapa de la nueva web — Portal de Pagos y Cobranzas
 
 > Documento vivo de diseño. Se va actualizando a medida que definimos.
-> **Última actualización:** 2026-10-19 (c)
+> **Última actualización:** 2026-10-19 (d)
 > **Estado:** análisis / diseño (no implementado)
 
 Leyenda: 🔵 **compartida/adaptable** (varios roles, cambia según el rol) · 🟢 **propia de un rol**
@@ -142,6 +142,12 @@ Alcance por rol: **Admin y Cooperadora = global**; **Coordinador/Director = sus 
   - **(c)** leyenda explícita → **DESCARTADA** (no se pueden escribir las leyendas).
   - **(b)** inferir por monto → **mal planteada**: las cuotas pagadas por MP **ya están ABONADAS** (no impagas). Además la factura puede ser por varias cuotas y el recibo parcial.
 - **Estado/flag nuevo:** una cuota puede quedar **ABONADA pero "pendiente de recibo"** hasta adjuntar el recibo fiscal de Tango.
+
+**Recibo de varias cuotas (pago múltiple):**
+- Si una orden de pago (MP) cubre **N cuotas**, Tango emite **un solo recibo** por el total.
+- El recibo se vincula a la **ORDEN DE PAGO**, **no a una cuota suelta**. Como la orden ya sabe qué cuotas cubre, el recibo queda asociado a **todas** (las N cuotas muestran ese mismo recibo).
+- Modelo: **1 orden de pago ↔ N cuotas ↔ 1 recibo**.
+- Match del recibo entrante (GAS): **ID de Tango + monto total + fecha**. El monto del recibo = total de la orden (aunque la factura sea por más).
 
 ### L. Configuración (solo Admin)
 - 🟢 **Parámetros** — mora, descuentos (incluye "¿pierde el descuento al entrar en mora?"), emails automáticos. *(Datos bancarios: ya no, se paga por MP.)*
