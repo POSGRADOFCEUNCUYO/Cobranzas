@@ -1,7 +1,7 @@
 # Mapa de la nueva web — Portal de Cobranzas (SiGPo v2)
 
 > Documento vivo de diseño. Se va actualizando a medida que definimos.
-> **Última actualización:** 2026-10-19 (b)
+> **Última actualización:** 2026-10-19 (c)
 > **Estado:** análisis / diseño (no implementado)
 
 Leyenda: 🔵 **compartida/adaptable** (varios roles, cambia según el rol) · 🟢 **propia de un rol**
@@ -65,6 +65,7 @@ Ejemplo (Doctorado): 5 agrupaciones (Cohorte 2024/2025/2026 + Readmisiones 2026 
 - 🔵 **Detalle de Programa** — sus agrupaciones, cada una con su tipo.
 - 🔵 **Detalle de Agrupación (cohorte/edición)** — grilla estudiantes × cuotas + sus valores de honorarios.
   - La **secuencia de cuotas** (encabezados: Cuota N – mes – valor general) es un **PLAN DE REFERENCIA** de la agrupación, para que el administrativo sepa a qué cuota/mes corresponde y el valor general. **El monto real de cada estudiante puede diferir** (descuento, otra forma de pago, paga más).
+  - Cada **cuota de un estudiante** puede llevar una **etiqueta propia** (ej.: "inscripción") para diferenciar su naturaleza.
 - 🔵 **Detalle de Estudiante** — ficha con todas sus cuotas/estados.
 
 ### D. Pagos — lado Estudiante
@@ -121,19 +122,26 @@ Alcance por rol: **Admin y Cooperadora = global**; **Coordinador/Director = sus 
 - 🔵 **Tasa de deserción** — bajas / abandono.
 - 🔵 **Comparativo** — entre programas / agrupaciones / períodos.
 
-### K. Conciliación contable (Fase 2 – Tango)
+### K. Conciliación contable — Tango (futuro cercano)
 - 🔵 **Recibos / Facturas Tango** — asignación de comprobantes (Admin / Cooperadora / Secretaría).
 
-**Integración por API — "factura = deuda" (opciones):**
-- **Opción 1 (recomendada):** Tango manda, el sistema escucha → al emitirse una **factura** suma deuda al estudiante; **nota de débito** suma; **nota de crédito** resta.
+**Estado actual:** **todavía NO hay API de Tango.** Por ahora se trabaja vía **correos (GAS)**: a Tango se le emiten facturas y recibos que llegan al estudiante con el detalle de lo abonado.
+
+**Objetivo:** cuando el estudiante **paga (MP)**, el sistema **avisa a Tango** y se **emite el recibo automáticamente**. **Cómo avisar a Tango** y **cuándo se crea la deuda/factura** en el estudiante = **a definir más adelante** (depende de tener API).
+
+**Integración por API (a futuro) — "factura = deuda" (opciones):**
+- **Opción 1 (recomendada):** Tango manda, el sistema escucha → factura suma deuda; nota de débito suma; nota de crédito resta.
 - **Opción 2:** el sistema manda, Tango refleja.
 - **Opción 3:** bidireccional.
 
-**Enlace comprobante → cuota (el problema a resolver):**
-- El estudiante se identifica por su **ID de Tango** (único por estudiante).
-- La **factura** muestra en el **artículo** el **programa/curso** y el **monto**.
-- El **recibo** muestra qué **factura** paga, el **ID del estudiante** y el **monto** (puede ser **menor** que la factura: la factura cubre las cuotas definidas y el recibo paga una cuota).
-- Falta vincular a la **cuota puntual**. Opciones: (a) que el **artículo** incluya el **período/cuota**; (b) **inferir** por monto + cuotas pendientes del estudiante en ese programa; (c) una **referencia explícita** (tipo leyenda "Cobro id período DNI"). Sugerido: **(a) + (b)**.
+**Enlace recibo → cuota — estado del análisis:**
+- El estudiante se identifica por su **ID de Tango** (único por estudiante). Falta diferenciar **programa/curso** y **cuota**.
+- **Insight clave:** con **MP el pago lo inicia el sistema**, así que el sistema **ya sabe qué cuota(s) se pagaron** → el recibo se **adjunta al pago ya conocido**, no se adivina.
+- Opciones evaluadas:
+  - **(a)** artículo con período/cuota → **DESCARTADA** (una factura puede cubrir **varias cuotas/meses**).
+  - **(c)** leyenda explícita → **DESCARTADA** (no se pueden escribir las leyendas).
+  - **(b)** inferir por monto → **mal planteada**: las cuotas pagadas por MP **ya están ABONADAS** (no impagas). Además la factura puede ser por varias cuotas y el recibo parcial.
+- **Estado/flag nuevo:** una cuota puede quedar **ABONADA pero "pendiente de recibo"** hasta adjuntar el recibo fiscal de Tango.
 
 ### L. Configuración (solo Admin)
 - 🟢 **Parámetros** — mora, descuentos (incluye "¿pierde el descuento al entrar en mora?"), emails automáticos. *(Datos bancarios: ya no, se paga por MP.)*
@@ -184,7 +192,7 @@ Al cargar un gasto se elige su **destino**:
 ### Naturaleza de los egresos
 - **Recurrentes mensuales** (coordinador, director) → se proyectan cada mes.
 - **Hora de dictado** → Proyectado = horas totales × valor hora de la agrupación (se conocen las horas de antemano). Ejecutado = **N facturas**, una por **profesor-proveedor** con sus horas (ej.: 20 hs a 1 h c/u = 20 facturas / 20 proveedores).
-- **Esporádicos / por evento** (jurado de tesis, director de tesis) → se registran al ocurrir; proyectables por **cantidad estimada** (manual **y** sugerida por historial) × valor.
+- **Esporádicos / por evento** (cualquier gasto por evento; ej.: jurado de tesis, director de tesis) → se registran al ocurrir; proyectables por **cantidad estimada** (manual **y** sugerida por historial) × valor.
 - **Únicos / compras** (libros, insumos) → carga manual, monto libre.
 
 ### Cuotas "a definir" (ingresos)
@@ -214,7 +222,7 @@ Al cargar un gasto se elige su **destino**:
 ---
 
 ## 7. Pendientes de definir
-- **Estimación de defensas de tesis:** ¿a qué nivel se carga, programa/año o cohorte? *(en discusión)* — sirve para proyectar el gasto de jurado y director de tesis.
+- **Estimación de eventos/gastos esporádicos** (ej. defensas de tesis, pero vale para cualquiera): ¿a qué nivel se carga, programa/año o agrupación? *(en discusión)*
 - **Perfiles de Secretaría, Director (antes Profesor), Gerente Cooperadora, Estudiante** (detalle).
 - **Tango (fase 2):** elegir opción de integración (§K) y resolver el enlace recibo → cuota.
 - **Reportes:** detallar "cómo se arma" cada uno (§J).
