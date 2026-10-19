@@ -1,7 +1,7 @@
 # Mapa de la nueva web — Portal de Cobranzas (SiGPo v2)
 
 > Documento vivo de diseño. Se va actualizando a medida que definimos.
-> **Última actualización:** 2026-10-18
+> **Última actualización:** 2026-10-19
 > **Estado:** análisis / diseño (no implementado)
 
 Leyenda: 🔵 **compartida/adaptable** (varios roles, cambia según el rol) · 🟢 **propia de un rol**
@@ -22,7 +22,7 @@ Administrador · Secretaría · Coordinador · Profesor (Directores) · Cooperad
 
 - **Administrador:** ve y hace **todo**.
 - **Coordinador:** acotado a **sus** programas/agrupaciones.
-- **Cooperadora:** **alcance global** (ente de control). Emite recibos, **paga a proveedores** (egresos), hace **liquidaciones** de divisas. *(Ya no aprueba comprobantes: MP confirma solo.)*
+- **Cooperadora:** **alcance global** (ente de control). Puede **armar/editar la estructura** (programas, agrupaciones, inscripciones, montos de cuotas). **Paga a proveedores** y **emite el comprobante de transferencia** (la transferencia se hace por fuera, en el home banking por CBU; el sistema solo la registra). Hace **liquidaciones** de divisas. *(Ya no aprueba comprobantes de alumnos: MP confirma solo.)*
 - **Profesor / Secretaría / Gerente Cooperadora / Estudiante:** a definir en la matriz.
 
 ---
@@ -130,8 +130,26 @@ Ejemplo (Doctorado): 5 agrupaciones (Cohorte 2024/2025/2026 + Readmisiones 2026 
 - Los valores difieren entre programas (incluso entre dos especializaciones) y entre agrupaciones de un mismo programa (aumentan año a año).
 - Comodidad: al crear una agrupación nueva, pre-completar copiando de otra y editar.
 
-### Atribución de cada gasto
-- A **programa**, a **agrupación** (cohorte/edición), o a **tipo de agrupación**.
+### Asignación y reparto de gastos
+Al cargar un gasto se elige su **destino**:
+- **A una o más agrupaciones (directo):** si es una, va entera; si son varias, se **pre-carga por saldo disponible ponderado**, con **edición manual**.
+- **Al programa/curso:** **reparto ponderado por saldo disponible** entre las agrupaciones del programa.
+- **A un tipo de agrupación** (ej.: todas las Readmisiones).
+
+**Criterio de reparto:** por defecto **por saldo disponible** (fijo por programa), con **posibilidad de editarlo/cambiarlo** en un gasto puntual.
+
+**Saldo disponible de una agrupación = ingresos ejecutados − egresos ejecutados** (la plata real que hay). Es lo que pondera el reparto.
+
+**Reglas de seguridad (en todos los modos):**
+1. Agrupación con saldo **0 o negativo → no recibe** parte del gasto.
+2. Si a una le tocaría **más de lo que tiene**, se le asigna solo hasta su saldo y el **excedente se redistribuye**; **nunca** queda en negativo.
+3. Si entre todas **no alcanza** para cubrir el gasto, el sistema **avisa** (fondos insuficientes) y decide la persona.
+
+**Proyección vs pago:** se **proyecta** con la estimación y, **al pagar**, el reparto se **ajusta sobre los saldos reales** del momento.
+
+### Pago a proveedores
+- La transferencia al proveedor se hace **por fuera del sistema** (home banking, CBU). El sistema **registra el egreso** y Cooperadora **emite/adjunta el comprobante de transferencia**.
+- **Oportunidad de integración:** una automatización **nueva** (aparte de la de recibos) podría **leer los correos de notificación del banco** y registrar el pago + adjuntar el comprobante automáticamente.
 
 ### Quién carga proyectados
 - **Cooperadora** (global) y **Coordinador** (su alcance). Admin gestiona el catálogo.
@@ -165,8 +183,7 @@ Ejemplo (Doctorado): 5 agrupaciones (Cohorte 2024/2025/2026 + Readmisiones 2026 
 ---
 
 ## 7. Pendientes de definir
-- **Cooperadora:** ¿"emite recibos" de ingresos (alumnos), de egresos (proveedores) o ambos? ¿Edita la parte académica o solo ve y opera lo financiero?
-- **Estimación de defensas de tesis:** ¿a qué nivel se carga, programa/año o cohorte?
+- **Estimación de defensas de tesis:** ¿a qué nivel se carga, programa/año o cohorte? *(en discusión)*
 - **Pago de más por transferencia:** cómo tratar el "saldo a favor".
 - **Perfiles de Secretaría, Profesor, Gerente Cooperadora, Estudiante** (detalle).
 - **Matriz Rol × Página/Acción** completa.
