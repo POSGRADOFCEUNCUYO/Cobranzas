@@ -18,6 +18,7 @@
 - **GitHub Pages publica desde la rama `desarrollo-38`.** Es la rama de producción en vivo. NO es `main`. Pushear a `desarrollo-38` pone los cambios en vivo. (Antes producción era `desarrollo-36`; se movió a `desarrollo-38`.)
 - Historial de ramas: `desarrollo-38` salió de `desarrollo-37`, que salió de `desarrollo-36`.
 - **Migración a GitHub institucional:** el proyecto se va a copiar al repo `POSGRADOFCEUNCUYO/pagos-cobranzas` (cuenta institucional). Esa migración la hace Anneris manualmente (import de GitHub); no requiere acción del asistente.
+- **Cuenta de GitHub:** `POSGRADOFCEUNCUYO` (institucional, dueña del repo). **Correo asociado a la cuenta de GitHub: `crm.posgrado@fce.uncu.edu.ar`.** (Distinto del correo de la cuenta de Claude, que es `anneris.amarfil@fce.uncu.edu.ar`.)
 
 ## Supabase — capacidad y plan (recordatorio)
 - **Proyecto Supabase:** `fdevypdowdhqaxvfiywt`. Plan **free**.
