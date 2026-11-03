@@ -1856,7 +1856,23 @@
         }
 
         function renderCeldaCuota(cuota, noDebeAbonar, descuentoPorcentaje) {
+            // Cooperadora puede editar el valor / corregir el pago de una cuota (vía RPC acotado).
+            const esEditable = true;
             if (noDebeAbonar || (cuota && cuota.estado === 'nodebe')) {
+                if (esEditable && cuota && cuota.cobroId) {
+                    const naAttr = ' onclick="event.stopPropagation();abrirCeldaPopupCoop(event,' + escapeHtml(JSON.stringify({
+                        cobro_id: cuota.cobroId,
+                        nombre: cuota.nombre,
+                        mes: cuota.mes,
+                        monto: cuota.montoBase,
+                        monto_abonado: cuota.montoAbonado || 0,
+                        descuento_porcentaje: descuentoPorcentaje || 0,
+                        fecha_vencimiento: cuota.fechaVencimiento || null,
+                        estado_actual: cuota.estado,
+                        no_aplica: true
+                      })) + ')" style="cursor:pointer;"';
+                    return `<td class="cuota-cell cuota-nodebe"${naAttr}>No aplica<div class="u-hint">✏️ editar</div></td>`;
+                }
                 return `<td class="cuota-cell cuota-nodebe">No aplica</td>`;
             }
             if (!cuota) {
@@ -1942,8 +1958,6 @@
                 pendiente: 'Revisión', noabonada: 'No abonada', adefinir: 'A definir'
             };
             const badgeLabel = badgeLabels[cuota.estado] || cuota.estado;
-            // Cooperadora puede editar el valor / corregir el pago de una cuota (vía RPC acotado).
-            const esEditable = true;
             const editAttr = esEditable
                 ? ' onclick="event.stopPropagation();abrirCeldaPopupCoop(event,' + escapeHtml(JSON.stringify({
                     cobro_id: cuota.cobroId,
