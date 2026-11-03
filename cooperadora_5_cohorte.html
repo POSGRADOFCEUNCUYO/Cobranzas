@@ -1120,6 +1120,9 @@
         .cell-popup-noapl:hover { background: #f1f5f9; border-color: #94a3b8; }
         .cell-popup-noapl.active { background: #fafafa; border-color: #cbd5e1; color: #94a3b8; font-style: italic; }
         .cell-popup-noapl input[type=checkbox] { accent-color: #5C1018; width:14px; height:14px; }
+        .cell-popup-corregir { margin-top: 10px; padding-top: 10px; border-top: 1px solid #eee; }
+        .cell-popup-corregir-lbl { font-size: 11px; font-weight: 700; color: #767676; margin-bottom: 5px; }
+        .cpop-corregir { margin-top: 6px; width: 100%; background: #8a5a00; color: #fff; border: none; border-radius: 6px; padding: 7px; font-size: 12px; font-weight: 700; cursor: pointer; }
         .cell-popup-btns { display: flex; gap: 6px; justify-content: flex-end; }
         .cell-popup-btns button {
             padding: 5px 12px; border-radius: 6px; font-size: 12px;
@@ -1446,7 +1449,15 @@
         </label>
         <div class="cell-popup-btns">
             <button class="cpop-cancel" onclick="cerrarCeldaPopupCoop()">Cancelar</button>
-            <button class="cpop-save" onclick="guardarCeldaPopupCoop()">💾 Guardar</button>
+            <button class="cpop-save" onclick="guardarCeldaPopupCoop()">💾 Guardar valor</button>
+        </div>
+        <div class="cell-popup-corregir">
+            <div class="cell-popup-corregir-lbl">Corregir monto pagado</div>
+            <div class="cell-popup-monto">
+                <span>$</span>
+                <input type="number" id="cpop-pagado" min="0" step="100" placeholder="pagado real">
+            </div>
+            <button class="cpop-corregir" onclick="corregirPagoCoop()">Corregir pago</button>
         </div>
     </div>
     <!-- ═══ MODAL: EDITAR CUOTAS (cooperadora) ═══ -->
@@ -1931,14 +1942,15 @@
                 pendiente: 'Revisión', noabonada: 'No abonada', adefinir: 'A definir'
             };
             const badgeLabel = badgeLabels[cuota.estado] || cuota.estado;
-            // Cooperadora no edita cuotas (solo administrador): celdas siempre de solo lectura.
-            const esEditable = false;
+            // Cooperadora puede editar el valor / corregir el pago de una cuota (vía RPC acotado).
+            const esEditable = true;
             const editAttr = esEditable
                 ? ' onclick="event.stopPropagation();abrirCeldaPopupCoop(event,' + escapeHtml(JSON.stringify({
                     cobro_id: cuota.cobroId,
                     nombre: cuota.nombre,
                     mes: cuota.mes,
                     monto: cuota.montoBase,
+                    monto_abonado: cuota.montoAbonado || 0,
                     descuento_porcentaje: descuentoPorcentaje || 0,
                     fecha_vencimiento: cuota.fechaVencimiento || null,
                     estado_actual: cuota.estado,
@@ -3426,6 +3438,9 @@
             inputMonto.disabled = noAplica;
             document.getElementById('cpop-noapl-label').classList.toggle('active', noAplica);
 
+            var inputPagado = document.getElementById('cpop-pagado');
+            if (inputPagado) inputPagado.value = (info.monto_abonado && Number(info.monto_abonado) > 0) ? Number(info.monto_abonado) : '';
+
             var popup = document.getElementById('cell-popup');
             popup.style.display = 'block';
             document.getElementById('cell-popup-overlay').style.display = 'block';
@@ -3460,7 +3475,6 @@
         async function guardarCeldaPopupCoop() {
             if (!_cpopCobroIdCoop) return;
             var cobroId  = _cpopCobroIdCoop;
-            var info     = window._cpopInfoCoop || {};
 
             var noAplica  = document.getElementById('cpop-noapl').checked;
             var montoStr  = document.getElementById('cpop-monto').value.trim();
@@ -3472,38 +3486,53 @@
             cerrarCeldaPopupCoop();
             try {
                 var sb = await getSupabase();
-                var res;
-
+                // Se llama al RPC acotado editar_valor_cuota (cooperadora no tiene UPDATE directo).
+                var params;
                 if (noAplica) {
-                    res = await sb.from('cobros').update({
-                        monto_original: null, monto_final: null, saldo_pendiente: null,
-                        descuento_porcentaje: 0, estado: 'NO_APLICA', no_aplica: true
-                    }).eq('cobro_id', cobroId);
+                    params = { p_cobro_id: cobroId, p_monto: null, p_no_aplica: true };
                 } else if (!tieneMonto) {
-                    res = await sb.from('cobros').update({
-                        monto_original: null, monto_final: null, saldo_pendiente: null,
-                        estado: 'A_DEFINIR', no_aplica: false
-                    }).eq('cobro_id', cobroId);
+                    params = { p_cobro_id: cobroId, p_monto: null, p_no_aplica: false };
                 } else {
-                    var montoOriginal = Math.round(parseFloat(montoStr) * 100) / 100;
-                    var pct = Number(info.descuento_porcentaje) || 0;
-                    var montoFinal = pct > 0 ? Math.round(montoOriginal * (1 - pct / 100) * 100) / 100 : montoOriginal;
-                    var fVenc = info.fecha_vencimiento || null;
-                    var hoy = new Date().toISOString().split('T')[0];
-                    var nuevoEstado = (fVenc && fVenc < hoy) ? 'EN_MORA' : 'NO_ABONADA';
-                    res = await sb.from('cobros').update({
-                        monto_original: montoOriginal, monto_final: montoFinal,
-                        saldo_pendiente: montoFinal, descuento_porcentaje: pct,
-                        estado: nuevoEstado, no_aplica: false
-                    }).eq('cobro_id', cobroId);
+                    params = { p_cobro_id: cobroId, p_monto: Math.round(parseFloat(montoStr) * 100) / 100, p_no_aplica: false };
                 }
-
-                if (res.error) throw res.error;
+                var r = await sb.rpc('editar_valor_cuota', params);
+                if (r.error) throw r.error;
+                if (r.data && r.data.ok === false) throw new Error(r.data.mensaje || 'No se pudo guardar');
                 mostrarToast('Cuota actualizada correctamente.', 'success');
                 await cargarDetalleCohorte();
             } catch(e) {
                 console.error(e);
                 mostrarToast('Error al guardar: ' + (e.message || e), 'error');
+            } finally {
+                _coopBusy = false;
+                mostrarSpinner(false);
+            }
+        }
+
+        async function corregirPagoCoop() {
+            if (!_cpopCobroIdCoop) return;
+            var cobroId = _cpopCobroIdCoop;
+            var pagStr  = document.getElementById('cpop-pagado').value.trim();
+            if (pagStr === '' || isNaN(parseFloat(pagStr))) {
+                mostrarToast('Ingresá el monto realmente pagado.', 'error');
+                return;
+            }
+            var pagado = Math.round(parseFloat(pagStr) * 100) / 100;
+            if (_coopBusy) return;
+            _coopBusy = true;
+            mostrarSpinner(true);
+            cerrarCeldaPopupCoop();
+            try {
+                var sb = await getSupabase();
+                // RPC acotado corregir_pago: ajusta lo pagado y reconcilia la tabla pagos.
+                var r = await sb.rpc('corregir_pago', { p_cobro_id: cobroId, p_total_pagado: pagado });
+                if (r.error) throw r.error;
+                if (r.data && r.data.ok === false) throw new Error(r.data.mensaje || 'No se pudo corregir');
+                mostrarToast('Pago corregido correctamente.', 'success');
+                await cargarDetalleCohorte();
+            } catch(e) {
+                console.error(e);
+                mostrarToast('Error al corregir el pago: ' + (e.message || e), 'error');
             } finally {
                 _coopBusy = false;
                 mostrarSpinner(false);
