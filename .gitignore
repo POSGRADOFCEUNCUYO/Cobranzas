@@ -4,3 +4,6 @@ plantilla_importacion_*.xlsx
 # Temporales
 _gen_*.py
 *.tmp
+
+# Configuración local de Claude Code (permisos de sesión; no se comparte)
+.claude/settings.local.json
