@@ -1123,6 +1123,9 @@
         .cell-popup-corregir { margin-top: 10px; padding-top: 10px; border-top: 1px solid #eee; }
         .cell-popup-corregir-lbl { font-size: 11px; font-weight: 700; color: #767676; margin-bottom: 5px; }
         .cpop-corregir { margin-top: 6px; width: 100%; background: #8a5a00; color: #fff; border: none; border-radius: 6px; padding: 7px; font-size: 12px; font-weight: 700; cursor: pointer; }
+        /* Estudiante dado de baja (BAJA): nombre y DNI tachados y en gris (igual que en el rol administrador). */
+        tr.fila-pasiva-cohorte .student-name,
+        tr.fila-pasiva-cohorte .student-dni { color: #999; text-decoration: line-through; }
         .cell-popup-btns { display: flex; gap: 6px; justify-content: flex-end; }
         .cell-popup-btns button {
             padding: 5px 12px; border-radius: 6px; font-size: 12px;
@@ -1832,14 +1835,15 @@
             const totales = calcularTotalesEstudiante(est);
             const estadoGeneral = obtenerEstadoGeneralEstudiante(est);
             const claseSaldo = totales.saldo <= 0 ? 'td-saldo-ok' : 'td-saldo-pend';
+            const esBaja = String(est.estadoAcademico || '').toUpperCase() === 'BAJA';
 
             return `
-                <tr data-estado="${estadoGeneral}">
+                <tr data-estado="${estadoGeneral}"${esBaja ? ' class="fila-pasiva-cohorte"' : ''}>
                     <td class="student-cell" style="cursor:pointer;" onclick="navegar('vista_facturacion_estudiante.html?dni=${escapeJs(String(est.dni))}')"  >
-                        ${escapeHtml(est.nombreCompleto)}
+                        <span class="student-name">${escapeHtml(est.nombreCompleto)}</span>
                         <span class="student-sub">${escapeHtml(est.estadoAcademico || 'ACTIVO')}</span>
                     </td>
-                    <td>${escapeHtml(est.dni || '—')}</td>
+                    <td class="student-dni">${escapeHtml(est.dni || '—')}</td>
                     <td class="email-cell">${escapeHtml(est.email || 'Sin email')}</td>
                     <td class="discount-cell">
                         ${renderTextoDescuento(est)}
