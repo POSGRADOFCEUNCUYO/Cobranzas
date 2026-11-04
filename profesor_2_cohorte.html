@@ -117,6 +117,7 @@
             <button class="filter-btn active" data-filtro="TODOS" onclick="filtrar(this)">Todos</button>
             <button class="filter-btn" data-filtro="AL_DIA"        onclick="filtrar(this)">Al día</button>
             <button class="filter-btn" data-filtro="MES_POR_PAGAR" onclick="filtrar(this)">Cuota del mes por pagar</button>
+            <button class="filter-btn" data-filtro="EN_REVISION"   onclick="filtrar(this)">En revisión</button>
             <button class="filter-btn" data-filtro="EN_MORA"       onclick="filtrar(this)">En mora</button>
             <button class="filter-btn" data-filtro="BAJA"          onclick="filtrar(this)">Dada de baja</button>
             <input class="search-input" id="searchInput" placeholder="Buscar por nombre o DNI…" oninput="renderTabla()">
@@ -158,10 +159,11 @@ document.addEventListener('DOMContentLoaded', async function() {
     catch(e) { mostrarError('Error al cargar datos: ' + e.message); }
 });
 
-/* Clasifica a un estudiante ACTIVO en 1 de 3 estados por cuotas (la baja real se resuelve
+/* Clasifica a un estudiante ACTIVO según la cuota del mes en curso (la baja real se resuelve
  * aparte, por estado_academico, en estadoDe()):
  *  EN_MORA       → alguna cuota vencida e impaga
  *  AL_DIA        → sin mora, pagó la cuota del mes en curso (o este mes no hay cuota con monto)
+ *  EN_REVISION   → sin mora, la cuota del mes tiene comprobante subido esperando aprobación
  *  MES_POR_PAGAR → sin mora, la cuota del mes en curso no está saldada (mesParcial: algo pagado)
  */
 function clasificarEstudiante(cobs) {
@@ -171,6 +173,7 @@ function clasificarEstudiante(cobs) {
         return mesKey(c.fecha_vencimiento) === mesActual && c._re !== 'A_DEFINIR' && c._re !== 'NO_APLICA';
     });
     if (mesAPagar.every(function(c){ return c._re==='ABONADA'; })) return { estado:'AL_DIA', mesParcial:false };
+    if (mesAPagar.some(function(c){ return c._re==='PENDIENTE'; })) return { estado:'EN_REVISION', mesParcial:false };
     var parcial = mesAPagar.some(function(c){ return calcMontoAbonado(c) > 0; });
     return { estado:'MES_POR_PAGAR', mesParcial:parcial };
 }
@@ -298,6 +301,7 @@ function renderTabla() {
     var lista = _estudiantes.filter(function(e) {
         if (_filtroEstado === 'AL_DIA'        && e.estadoGlobal !== 'AL_DIA')        return false;
         if (_filtroEstado === 'MES_POR_PAGAR' && e.estadoGlobal !== 'MES_POR_PAGAR') return false;
+        if (_filtroEstado === 'EN_REVISION'   && e.estadoGlobal !== 'EN_REVISION')   return false;
         if (_filtroEstado === 'EN_MORA'       && e.estadoGlobal !== 'EN_MORA')       return false;
         if (_filtroEstado === 'BAJA'          && e.estadoGlobal !== 'BAJA')          return false;
         if (busqueda && !(e.dni+e.nombre+e.apellido).toLowerCase().includes(busqueda)) return false;
@@ -324,9 +328,10 @@ function renderTabla() {
 
     var rows = slice.map(function(e) {
         var _badgeMap = {
-            EN_MORA:  ['badge-mora',    'En mora'],
-            AL_DIA:   ['badge-abonada', 'Al día'],
-            BAJA:     ['badge-cancelo', 'Dada de baja']
+            EN_MORA:     ['badge-mora',    'En mora'],
+            AL_DIA:      ['badge-abonada', 'Al día'],
+            EN_REVISION: ['badge-parcial', 'En revisión'],
+            BAJA:        ['badge-cancelo', 'Dada de baja']
         };
         // MES_POR_PAGAR se muestra según el estado real de la cuota del mes: No abonada / Abonada parcial
         var _bm = _badgeMap[e.estadoGlobal] || ['badge-pendiente', e.mesParcial ? 'Abonada parcial' : 'No abonada'];
@@ -344,7 +349,7 @@ function renderTabla() {
 
     document.getElementById('tablaWrap').innerHTML =
         '<div style="overflow-x:auto;"><table><thead><tr>' +
-        '<th>Apellido, Nombre</th><th>DNI</th><th>Estado</th><th>Cuotas</th><th>Pagado</th><th>Saldo a la fecha<br><span style="font-weight:400;font-size:11px;opacity:.8;">(sobre cuotas definidas)</span></th>' +
+        '<th>Apellido, Nombre</th><th>DNI</th><th>Estado de cuota mes corriente</th><th>Cantidad de cuotas</th><th>Pagado</th><th>Saldo a la fecha<br><span style="font-weight:400;font-size:11px;opacity:.8;">(sobre cuotas definidas)</span></th>' +
         '</tr></thead><tbody>' + rows + '</tbody></table></div>';
 
     // Paginador
