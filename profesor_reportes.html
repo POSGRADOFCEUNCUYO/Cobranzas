@@ -342,6 +342,7 @@ async function cargarVista() {
         var filtCohorte  = document.getElementById('selCohorte').value;
         var ff             = _leerFiltroFecha();              // rango de fechas o toda la cohorte
         var etiquetaPeriodo = _etiquetaPeriodo(ff);           // texto para los títulos
+        var sufijoPeriodo   = ff.todos ? '' : (' · ' + etiquetaPeriodo); // vacío salvo que haya rango de fechas
 
         // Cohortes visibles: programas completos Y/O cohortes específicas
         var cohQueries = [];
@@ -455,9 +456,9 @@ async function cargarVista() {
         var saldo    = recaudadoArs - egresos;
 
         document.getElementById('summaryGrid').innerHTML =
-            '<div class="summary-item"><div class="summary-label">Total Recaudado ' + etiquetaPeriodo + '</div><div class="summary-value">' + fMontoDual(recaudadoArs, recaudadoUsd) + '</div></div>' +
-            '<div class="summary-item rojo"><div class="summary-label">Egresos Ejecutados ' + etiquetaPeriodo + '</div><div class="summary-value rojo">' + fM(egresos) + '</div></div>' +
-            '<div class="summary-item ' + (saldo >= 0 ? 'verde' : 'rojo') + '"><div class="summary-label">Saldo ' + etiquetaPeriodo + (recaudadoUsd>0?' (ARS)':'') + '</div><div class="summary-value ' + (saldo >= 0 ? 'verde' : 'rojo') + '">' + fM(saldo) + '</div></div>' +
+            '<div class="summary-item"><div class="summary-label">Total Recaudado' + sufijoPeriodo + '</div><div class="summary-value">' + fMontoDual(recaudadoArs, recaudadoUsd) + '</div></div>' +
+            '<div class="summary-item rojo"><div class="summary-label">Egresos Ejecutados' + sufijoPeriodo + '</div><div class="summary-value rojo">' + fM(egresos) + '</div></div>' +
+            '<div class="summary-item ' + (saldo >= 0 ? 'verde' : 'rojo') + '"><div class="summary-label">Saldo' + sufijoPeriodo + (recaudadoUsd>0?' (ARS)':'') + '</div><div class="summary-value ' + (saldo >= 0 ? 'verde' : 'rojo') + '">' + fM(saldo) + '</div></div>' +
             '<div class="summary-item naranja"><div class="summary-label">Tasa de Pago</div><div class="summary-value">' + tasaPago + '%</div></div>' +
             '<div class="summary-item verde"><div class="summary-label">Estudiantes al Día</div><div class="summary-value verde">' + dnisAlDia.size + '</div></div>' +
             '<div class="summary-item naranja"><div class="summary-label">Mes corriente adeudado</div><div class="summary-value">' + dnisMesAdeud.size + '</div></div>' +
@@ -514,7 +515,7 @@ async function cargarVista() {
             ? ((_programas.find(function(p){ return String(p.programa_id)===String(filtPrograma); }) || {}).nombre || 'Mis programas')
             : 'Todos mis programas';
         var cohNombre  = filtCohorte ? ((cohortesF[0] || {}).nombre || 'Cohorte') : 'Todas las cohortes';
-        document.getElementById('headerSubtitle').textContent = progNombre + ' • ' + cohNombre + ' • ' + etiquetaPeriodo;
+        document.getElementById('headerSubtitle').textContent = progNombre + ' • ' + cohNombre + (ff.todos ? '' : ' • ' + etiquetaPeriodo);
 
         // Renderizar gráficos
         destroyCharts();
