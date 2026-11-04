@@ -577,7 +577,7 @@
                                 '<small>' + esc(progNombre) + ' · Vence: ' + fFecha(c.fecha_vencimiento) + '</small>' +
                             '</div>' +
                             '<div class="cuota-right">' +
-                                '<div class="cuota-monto">' + fM(c.monto_final, c.moneda) + '</div>' +
+                                '<div class="cuota-monto">' + (estado === 'A_DEFINIR' ? '—' : fM(c.monto_final, c.moneda)) + '</div>' +
                                 esBadge +
                             '</div>' +
                         '</div>';
