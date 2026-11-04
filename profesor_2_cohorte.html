@@ -369,7 +369,7 @@ function renderCuotas(cobros) {
     // Agrupar por periodo/concepto para ver el resumen de cobros
     var porCuota = {};
     cobros.forEach(function(c) {
-        var key = c.periodo || c.concepto || 'Cuota';
+        var key = (c.concepto || 'Cuota') + ' || ' + (c.periodo || '');
         if (!porCuota[key]) porCuota[key] = { concepto: c.concepto||key, periodo: c.periodo||key, vencimiento: c.fecha_vencimiento, total:0, abonado:0, pendiente:0, mora:0, count:0 };
         var k = porCuota[key];
         k.count++;
