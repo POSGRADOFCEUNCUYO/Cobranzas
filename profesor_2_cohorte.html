@@ -102,7 +102,7 @@
         <div class="stat-card"><div class="stat-label">Estudiantes</div><div class="stat-value" id="s-est">—</div></div>
         <div class="stat-card success"><div class="stat-label">Al Día</div><div class="stat-value success" id="s-aldia">—</div></div>
         <div class="stat-card danger"><div class="stat-label">En Mora</div><div class="stat-value danger" id="s-mora">—</div></div>
-        <div class="stat-card"><div class="stat-label">Canceló Carrera</div><div class="stat-value" id="s-cancelo">—</div></div>
+        <div class="stat-card"><div class="stat-label">Dada de baja</div><div class="stat-value" id="s-cancelo">—</div></div>
         <div class="stat-card" style="border-left-color:#0369a1"><div class="stat-label">Ingresos Proyectados</div><div class="stat-value" id="s-proy" style="color:#0369a1">—</div></div>
         <div class="stat-card info"><div class="stat-label">Recaudado</div><div class="stat-value info" id="s-rec">—</div></div>
         <div class="stat-card warning"><div class="stat-label">Egresos</div><div class="stat-value warning" id="s-egr">—</div></div>
@@ -118,7 +118,7 @@
             <button class="filter-btn" data-filtro="AL_DIA"        onclick="filtrar(this)">Al día</button>
             <button class="filter-btn" data-filtro="MES_POR_PAGAR" onclick="filtrar(this)">Cuota del mes por pagar</button>
             <button class="filter-btn" data-filtro="EN_MORA"       onclick="filtrar(this)">En mora</button>
-            <button class="filter-btn" data-filtro="CANCELO"       onclick="filtrar(this)">Canceló carrera</button>
+            <button class="filter-btn" data-filtro="BAJA"          onclick="filtrar(this)">Dada de baja</button>
             <input class="search-input" id="searchInput" placeholder="Buscar por nombre o DNI…" oninput="renderTabla()">
         </div>
         <div id="tablaWrap"><div class="loading">Cargando…</div></div>
@@ -158,15 +158,14 @@ document.addEventListener('DOMContentLoaded', async function() {
     catch(e) { mostrarError('Error al cargar datos: ' + e.message); }
 });
 
-/* Clasifica a un estudiante en 1 de 4 estados globales (misma lógica para tarjetas y tabla):
+/* Clasifica a un estudiante ACTIVO en 1 de 3 estados por cuotas (la baja real se resuelve
+ * aparte, por estado_academico, en estadoDe()):
  *  EN_MORA       → alguna cuota vencida e impaga
- *  CANCELO       → todas las cuotas Abonada o No aplica (ninguna A definir ni con saldo)
  *  AL_DIA        → sin mora, pagó la cuota del mes en curso (o este mes no hay cuota con monto)
  *  MES_POR_PAGAR → sin mora, la cuota del mes en curso no está saldada (mesParcial: algo pagado)
  */
 function clasificarEstudiante(cobs) {
     if (cobs.some(function(c){ return c._re==='EN_MORA'; })) return { estado:'EN_MORA', mesParcial:false };
-    if (cobs.length && cobs.every(function(c){ return c._re==='ABONADA' || c._re==='NO_APLICA'; })) return { estado:'CANCELO', mesParcial:false };
     var mesActual = mesKey(hoy());
     var mesAPagar = cobs.filter(function(c){
         return mesKey(c.fecha_vencimiento) === mesActual && c._re !== 'A_DEFINIR' && c._re !== 'NO_APLICA';
@@ -205,12 +204,21 @@ async function cargar(sesion, cohorteId) {
     var dnis = [...new Set(cobros.map(function(c){ return c.dni; }))];
     var [progRes, usuRes] = await Promise.all([
         sb.from('programas').select('nombre').eq('programa_id', coh.programa_id).single(),
-        dnis.length ? sb.from('estudiantes').select('dni,nombre,apellido').in('dni', dnis) : Promise.resolve({data:[]})
+        dnis.length ? sb.from('estudiantes').select('id,dni,nombre,apellido').in('dni', dnis) : Promise.resolve({data:[]})
     ]);
 
     var progNom = (progRes.data && progRes.data.nombre) || '';
     var usuMap  = {};
-    (usuRes.data||[]).forEach(function(u){ usuMap[u.dni] = u; });
+    var idToDni = {};
+    (usuRes.data||[]).forEach(function(u){ usuMap[u.dni] = u; idToDni[u.id] = String(u.dni); });
+    // Estado académico por DNI (ACTIVO / BAJA) desde las inscripciones de la cohorte
+    var estadoAcadByDni = {};
+    (insc||[]).forEach(function(i){ var d = idToDni[i.estudiante_id]; if (d) estadoAcadByDni[d] = i.estado_academico || 'ACTIVO'; });
+    // Estado global del alumno: la BAJA real (estado_academico) manda sobre la clasificación por cuotas.
+    function estadoDe(dni){
+        if ((estadoAcadByDni[dni] || 'ACTIVO') === 'BAJA') return 'BAJA';
+        return clasificarEstudiante(porDni[dni] || []).estado;
+    }
 
     // Header
     document.getElementById('cohTitle').textContent = coh.nombre || 'Cohorte';
@@ -227,8 +235,8 @@ async function cargar(sesion, cohorteId) {
     var totalEst = new Set(insc.map(function(i){ return i.estudiante_id; })).size;
     var dnisConMora = new Set(cobros.filter(function(c){ return c._re==='EN_MORA'; }).map(function(c){ return c.dni; }));
     // Conteos por estado global (misma clasificación que la tabla)
-    var alDiaCount   = dnis.filter(function(dni){ return clasificarEstudiante(porDni[dni]||[]).estado === 'AL_DIA';  }).length;
-    var canceloCount = dnis.filter(function(dni){ return clasificarEstudiante(porDni[dni]||[]).estado === 'CANCELO'; }).length;
+    var alDiaCount = dnis.filter(function(dni){ return estadoDe(dni) === 'AL_DIA'; }).length;
+    var bajaCount  = dnis.filter(function(dni){ return estadoDe(dni) === 'BAJA';  }).length;
     // Stats financieros desde RPC (fuente única de verdad, sin divergencia entre roles)
     var stRes = await sb.rpc('stats_cohorte', { p_cohorte_id: cohorteId });
     var st = stRes.data || {};
@@ -251,7 +259,7 @@ async function cargar(sesion, cohorteId) {
     document.getElementById('s-est').textContent   = totalEst;
     document.getElementById('s-aldia').textContent = alDiaCount;
     document.getElementById('s-mora').textContent  = dnisConMora.size;
-    document.getElementById('s-cancelo').textContent = canceloCount;
+    document.getElementById('s-cancelo').textContent = bajaCount;
     document.getElementById('s-proy').textContent   = fM(proyectado);
     document.getElementById('s-rec').textContent   = fM(recaudado) + (st.ingresos_usd > 0 ? ' + U$S ' + Number(st.ingresos_usd).toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '');
     document.getElementById('s-egr').textContent   = fM(egrExecArs) + (st.egresos_usd > 0 ? ' + U$S ' + Number(st.egresos_usd).toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '');
@@ -269,7 +277,8 @@ async function cargar(sesion, cohorteId) {
         }, 0);
         var pagado = cobs.reduce(function(s,c){ return s+calcMontoAbonado(c); },0);
         var _cl = clasificarEstudiante(cobs);
-        return { dni: dni, nombre: usu.nombre||'—', apellido: usu.apellido||'—', estadoGlobal: _cl.estado, mesParcial: _cl.mesParcial, deuda: deuda, pagado: pagado, cobros: cobs };
+        var _eg = ((estadoAcadByDni[dni] || 'ACTIVO') === 'BAJA') ? 'BAJA' : _cl.estado;
+        return { dni: dni, nombre: usu.nombre||'—', apellido: usu.apellido||'—', estadoGlobal: _eg, mesParcial: _cl.mesParcial, deuda: deuda, pagado: pagado, cobros: cobs };
     });
 
     renderTabla();
@@ -290,7 +299,7 @@ function renderTabla() {
         if (_filtroEstado === 'AL_DIA'        && e.estadoGlobal !== 'AL_DIA')        return false;
         if (_filtroEstado === 'MES_POR_PAGAR' && e.estadoGlobal !== 'MES_POR_PAGAR') return false;
         if (_filtroEstado === 'EN_MORA'       && e.estadoGlobal !== 'EN_MORA')       return false;
-        if (_filtroEstado === 'CANCELO'       && e.estadoGlobal !== 'CANCELO')       return false;
+        if (_filtroEstado === 'BAJA'          && e.estadoGlobal !== 'BAJA')          return false;
         if (busqueda && !(e.dni+e.nombre+e.apellido).toLowerCase().includes(busqueda)) return false;
         return true;
     });
@@ -317,7 +326,7 @@ function renderTabla() {
         var _badgeMap = {
             EN_MORA:  ['badge-mora',    'En mora'],
             AL_DIA:   ['badge-abonada', 'Al día'],
-            CANCELO:  ['badge-cancelo', 'Canceló carrera']
+            BAJA:     ['badge-cancelo', 'Dada de baja']
         };
         // MES_POR_PAGAR se muestra según el estado real de la cuota del mes: No abonada / Abonada parcial
         var _bm = _badgeMap[e.estadoGlobal] || ['badge-pendiente', e.mesParcial ? 'Abonada parcial' : 'No abonada'];
