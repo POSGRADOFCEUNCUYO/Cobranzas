@@ -14,8 +14,8 @@
 - Por eso en `auth.users.email` va el **email real** del estudiante (identificador interno de la cuenta + destino de los mails de "recuperar contraseña"); el alumno **nunca escribe el email**. La cadena que importa que funcione es **DNI → email** (que `get_login_info(DNI)` devuelva el mismo email guardado en `auth.users`/`usuarios`/`estudiantes`).
 
 ## Infraestructura (NO volver a preguntar)
-- **GitHub Pages publica desde la rama `desarrollo-38`.** Es la rama de producción en vivo. NO es `main`. Pushear a `desarrollo-38` pone los cambios en vivo. (Antes producción era `desarrollo-36`; se movió a `desarrollo-38`.)
-- Historial de ramas: `desarrollo-38` salió de `desarrollo-37`, que salió de `desarrollo-36`.
+- **GitHub Pages publica desde la rama `desarrollo-39`.** Es la rama de producción en vivo. NO es `main`. Pushear a `desarrollo-39` pone los cambios en vivo. (Antes producción fue `desarrollo-36` y luego `desarrollo-38`; ahora es `desarrollo-39`.)
+- Historial de ramas: `desarrollo-39` salió de `desarrollo-38`, que salió de `desarrollo-37`, que salió de `desarrollo-36`.
 - **Migración a GitHub institucional:** el proyecto se va a copiar al repo `POSGRADOFCEUNCUYO/pagos-cobranzas` (cuenta institucional). Esa migración la hace Anneris manualmente (import de GitHub); no requiere acción del asistente.
 
 ## Supabase — capacidad y plan (recordatorio)
